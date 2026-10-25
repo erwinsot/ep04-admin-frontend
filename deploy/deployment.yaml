@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ep04-admin-frontend
+  namespace: ep04-admin-frontend
+  labels:
+    app.kubernetes.io/name: ep04-admin-frontend
+    app.kubernetes.io/part-of: ep04
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ep04-admin-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ep04-admin-frontend
+        app.kubernetes.io/part-of: ep04
+    spec:
+      containers:
+        - name: frontend
+          image: ghcr.io/erwinsot/ep04-admin-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            - name: API_UPSTREAM
+              valueFrom:
+                configMapKeyRef:
+                  name: ep04-admin-frontend-config
+                  key: API_UPSTREAM
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

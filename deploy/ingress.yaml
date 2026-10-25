@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ep04-admin-frontend
+  namespace: ep04-admin-frontend
+  labels:
+    app.kubernetes.io/name: ep04-admin-frontend
+    app.kubernetes.io/part-of: ep04
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ep04-admin-frontend.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ep04-admin-frontend
+                port:
+                  number: 80

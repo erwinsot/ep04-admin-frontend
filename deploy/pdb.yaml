@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ep04-admin-frontend
+  namespace: ep04-admin-frontend
+  labels:
+    app.kubernetes.io/name: ep04-admin-frontend
+    app.kubernetes.io/part-of: ep04
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ep04-admin-frontend

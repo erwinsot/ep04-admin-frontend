@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ep04-admin-frontend-config
+  namespace: ep04-admin-frontend
+  labels:
+    app.kubernetes.io/name: ep04-admin-frontend
+    app.kubernetes.io/part-of: ep04
+data:
+  API_UPSTREAM: http://ep04-control-plane.ep04-control-plane.svc.cluster.local:80
