@@ -18,9 +18,11 @@ spec:
         app.kubernetes.io/name: ep04-admin-frontend
         app.kubernetes.io/part-of: ep04
     spec:
+      imagePullSecrets:
+        - name: ghcr-creds
       containers:
         - name: frontend
-          image: ghcr.io/erwinsot/ep04-admin-frontend:latest
+          image: ghcr.io/erwinsot/ep04-admin-frontend:0.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
