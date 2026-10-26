@@ -260,7 +260,7 @@ export function TenantsListPage() {
               <div className="entity-card-head">
                 <div>
                   <p className="entity-meta">Tenant ID</p>
-                  <Link to={`/tenants/${item.tenantId}`} className="entity-card-title">
+                  <Link to={`/tenants/${item.tenantId}`} className="entity-card-title word-break">
                     {item.tenantId}
                   </Link>
                 </div>

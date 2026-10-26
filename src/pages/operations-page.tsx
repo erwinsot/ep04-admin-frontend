@@ -292,6 +292,12 @@ export function OperationsPage() {
                 <OperationStatusBadge status={item.status} />
               </div>
 
+              <div className="operation-meta-strip" aria-label="Resumen de operacion">
+                <span className="operation-meta-chip">{item.operationType}</span>
+                <span className="operation-meta-chip">Intento {item.attemptNumber}</span>
+                <span className="operation-meta-chip muted">{item.requestedBy}</span>
+              </div>
+
               <dl className="entity-kv">
                 <div className="entity-kv-row">
                   <dt>Tenant</dt>
@@ -300,21 +306,6 @@ export function OperationsPage() {
                       {item.tenantId}
                     </Link>
                   </dd>
-                </div>
-
-                <div className="entity-kv-row">
-                  <dt>Tipo</dt>
-                  <dd>{item.operationType}</dd>
-                </div>
-
-                <div className="entity-kv-row">
-                  <dt>Intento</dt>
-                  <dd>{item.attemptNumber}</dd>
-                </div>
-
-                <div className="entity-kv-row">
-                  <dt>Solicitado por</dt>
-                  <dd>{item.requestedBy}</dd>
                 </div>
 
                 <div className="entity-kv-row">
