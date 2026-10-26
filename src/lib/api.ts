@@ -36,7 +36,8 @@ type RequestOptions = {
 }
 
 function requiresAdminHeader(path: string): boolean {
-  return /^\/api\/v1\/(tenants|operations|catalogs)(\/|$)/.test(path)
+  const pathname = path.split('?')[0]
+  return /^\/api\/v1\/(tenants|operations|catalogs)(\/|$)/.test(pathname)
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
