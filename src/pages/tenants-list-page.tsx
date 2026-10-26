@@ -2,7 +2,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useMemo } from 'react'
 import { useTenants } from '@/features/tenants/hooks'
 import { ACTIVE_STATUSES, TENANT_STATUSES } from '@/constants/catalogs'
-import { clamp, formatDate } from '@/lib/utils'
+import { clamp, cn, formatDate } from '@/lib/utils'
 import { StatusBadge } from '@/components/status-badge'
 import { ApiError } from '@/lib/api'
 import { friendlyError } from '@/lib/error-messages'
@@ -10,6 +10,15 @@ import { EmptyState } from '@/components/empty-state'
 import { SkeletonTableRows } from '@/components/skeleton-table-rows'
 
 const DEFAULT_SIZE = 20
+type ViewMode = 'table' | 'cards'
+const VIEW_STORAGE_KEY = 'ep04.tenants.view-mode'
+
+function readStoredView(): ViewMode | null {
+  if (typeof window === 'undefined') return null
+  const value = window.localStorage.getItem(VIEW_STORAGE_KEY)
+  if (value === 'table' || value === 'cards') return value
+  return null
+}
 
 export function TenantsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -18,6 +27,8 @@ export function TenantsListPage() {
   const size = clamp(Number(searchParams.get('size') ?? String(DEFAULT_SIZE)) || DEFAULT_SIZE, 1, 200)
   const q = searchParams.get('q') ?? ''
   const status = (searchParams.get('status') as typeof TENANT_STATUSES[number] | '') ?? ''
+  const viewParam = searchParams.get('view')
+  const view = (viewParam === 'table' || viewParam === 'cards' ? viewParam : readStoredView()) ?? 'table'
 
   const query = useTenants({ page, size, q, status })
 
@@ -59,6 +70,15 @@ export function TenantsListPage() {
     setSearchParams(params)
   }
 
+  const setViewMode = (nextView: ViewMode) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, nextView)
+    }
+    const params = new URLSearchParams(searchParams)
+    params.set('view', nextView)
+    setSearchParams(params)
+  }
+
   const error = query.error as ApiError | null
 
   return (
@@ -69,6 +89,22 @@ export function TenantsListPage() {
           <p>Administra aprovisionamiento, estado operativo y readiness para ingestion.</p>
         </div>
         <div className="actions-inline">
+          <div className="view-switch" role="group" aria-label="Modo de visualizacion">
+            <button
+              type="button"
+              className={cn('view-btn', view === 'table' && 'active')}
+              onClick={() => setViewMode('table')}
+            >
+              Tabla
+            </button>
+            <button
+              type="button"
+              className={cn('view-btn', view === 'cards' && 'active')}
+              onClick={() => setViewMode('cards')}
+            >
+              Tarjetas
+            </button>
+          </div>
           <Link to="/operations" className="btn secondary inline-btn">
             Ver operaciones
           </Link>
@@ -137,60 +173,122 @@ export function TenantsListPage() {
 
       {error && <div className="error-box">{friendlyError(error.code, error.message)}</div>}
 
-      <div className="panel table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Tenant</th>
-              <th>Company</th>
-              <th>ERP</th>
-              <th>Env</th>
-              <th>Status</th>
-              <th>Actualizacion</th>
-            </tr>
-          </thead>
-          <tbody>
-            {query.isLoading && <SkeletonTableRows columns={6} />}
-            {!query.isLoading && query.data?.items.length === 0 && (
+      {view === 'table' && (
+        <div className="panel table-wrap">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={6}>
-                  <EmptyState
-                    title="Sin tenants para mostrar"
-                    description="No hay resultados para los filtros actuales. Ajusta la busqueda o limpia los filtros."
-                    action={
-                      <button
-                        className="btn secondary"
-                        type="button"
-                        onClick={() => updateFilters({ q: '', status: '' })}
-                      >
-                        Limpiar filtros
-                      </button>
-                    }
-                  />
-                </td>
+                <th>Tenant</th>
+                <th>Company</th>
+                <th>ERP</th>
+                <th>Env</th>
+                <th>Status</th>
+                <th>Actualizacion</th>
               </tr>
-            )}
-            {query.data?.items.map((item) => (
-              <tr key={item.tenantId}>
-                <td>
-                  <Link to={`/tenants/${item.tenantId}`} className="tenant-link">
+            </thead>
+            <tbody>
+              {query.isLoading && <SkeletonTableRows columns={6} />}
+              {!query.isLoading && query.data?.items.length === 0 && (
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState
+                      title="Sin tenants para mostrar"
+                      description="No hay resultados para los filtros actuales. Ajusta la busqueda o limpia los filtros."
+                      action={
+                        <button
+                          className="btn secondary"
+                          type="button"
+                          onClick={() => updateFilters({ q: '', status: '' })}
+                        >
+                          Limpiar filtros
+                        </button>
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+              {query.data?.items.map((item) => (
+                <tr key={item.tenantId}>
+                  <td>
+                    <Link to={`/tenants/${item.tenantId}`} className="tenant-link">
+                      {item.tenantId}
+                    </Link>
+                  </td>
+                  <td>{item.companyName}</td>
+                  <td>
+                    {item.erpType} / {item.integrationMode}
+                  </td>
+                  <td>{item.environment}</td>
+                  <td>
+                    <StatusBadge status={item.status} />
+                  </td>
+                  <td>{formatDate(item.updatedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {view === 'cards' && (
+        <div className="cards-grid">
+          {query.isLoading &&
+            Array.from({ length: 6 }).map((_, index) => (
+              <article key={`tenant-card-skeleton-${index}`} className="panel entity-card">
+                <div className="skeleton-line skeleton-line-2" />
+                <div className="skeleton-line skeleton-line-1" />
+                <div className="skeleton-line skeleton-line-0" />
+              </article>
+            ))}
+
+          {!query.isLoading && query.data?.items.length === 0 && (
+            <div className="panel">
+              <EmptyState
+                title="Sin tenants para mostrar"
+                description="No hay resultados para los filtros actuales. Ajusta la busqueda o limpia los filtros."
+                action={
+                  <button className="btn secondary" type="button" onClick={() => updateFilters({ q: '', status: '' })}>
+                    Limpiar filtros
+                  </button>
+                }
+              />
+            </div>
+          )}
+
+          {query.data?.items.map((item) => (
+            <article key={item.tenantId} className="panel entity-card">
+              <div className="entity-card-head">
+                <div>
+                  <p className="entity-meta">Tenant ID</p>
+                  <Link to={`/tenants/${item.tenantId}`} className="entity-card-title">
                     {item.tenantId}
                   </Link>
-                </td>
-                <td>{item.companyName}</td>
-                <td>
+                </div>
+                <StatusBadge status={item.status} />
+              </div>
+
+              <dl className="entity-kv">
+                <dt>Company</dt>
+                <dd>{item.companyName}</dd>
+                <dt>ERP</dt>
+                <dd>
                   {item.erpType} / {item.integrationMode}
-                </td>
-                <td>{item.environment}</td>
-                <td>
-                  <StatusBadge status={item.status} />
-                </td>
-                <td>{formatDate(item.updatedAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </dd>
+                <dt>Environment</dt>
+                <dd>{item.environment}</dd>
+                <dt>Actualizacion</dt>
+                <dd>{formatDate(item.updatedAt)}</dd>
+              </dl>
+
+              <div className="entity-actions">
+                <Link to={`/tenants/${item.tenantId}`} className="btn secondary inline-btn">
+                  Ver detalle
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
 
       <div className="pager">
         <button className="btn secondary" type="button" onClick={() => movePage(page - 1)} disabled={page <= 0}>

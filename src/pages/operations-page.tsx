@@ -4,12 +4,21 @@ import { ACTIVE_OPERATION_STATUSES, OPERATION_STATUSES, OPERATION_TYPES } from '
 import { useOperations } from '@/features/tenants/hooks'
 import { ApiError } from '@/lib/api'
 import { friendlyError } from '@/lib/error-messages'
-import { clamp, formatDate } from '@/lib/utils'
+import { clamp, cn, formatDate } from '@/lib/utils'
 import { OperationStatusBadge } from '@/components/operation-status-badge'
 import { EmptyState } from '@/components/empty-state'
 import { SkeletonTableRows } from '@/components/skeleton-table-rows'
 
 const DEFAULT_SIZE = 20
+type ViewMode = 'table' | 'cards'
+const VIEW_STORAGE_KEY = 'ep04.operations.view-mode'
+
+function readStoredView(): ViewMode | null {
+  if (typeof window === 'undefined') return null
+  const value = window.localStorage.getItem(VIEW_STORAGE_KEY)
+  if (value === 'table' || value === 'cards') return value
+  return null
+}
 
 export function OperationsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -19,6 +28,8 @@ export function OperationsPage() {
   const tenantId = searchParams.get('tenantId') ?? ''
   const status = (searchParams.get('status') as (typeof OPERATION_STATUSES)[number] | '') ?? ''
   const type = (searchParams.get('type') as (typeof OPERATION_TYPES)[number] | '') ?? ''
+  const viewParam = searchParams.get('view')
+  const view = (viewParam === 'table' || viewParam === 'cards' ? viewParam : readStoredView()) ?? 'table'
 
   const query = useOperations({ page, size, status, type, tenantId: tenantId || undefined })
 
@@ -60,6 +71,15 @@ export function OperationsPage() {
     setSearchParams(params)
   }
 
+  const setViewMode = (nextView: ViewMode) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, nextView)
+    }
+    const params = new URLSearchParams(searchParams)
+    params.set('view', nextView)
+    setSearchParams(params)
+  }
+
   const error = query.error as ApiError | null
 
   return (
@@ -69,9 +89,28 @@ export function OperationsPage() {
           <h1>Operaciones</h1>
           <p>Seguimiento global de CREATE, RETRY y DELETE con su estado asyncrono.</p>
         </div>
-        <button className="btn secondary" onClick={() => query.refetch()} type="button">
-          Refrescar
-        </button>
+        <div className="actions-inline">
+          <div className="view-switch" role="group" aria-label="Modo de visualizacion">
+            <button
+              type="button"
+              className={cn('view-btn', view === 'table' && 'active')}
+              onClick={() => setViewMode('table')}
+            >
+              Tabla
+            </button>
+            <button
+              type="button"
+              className={cn('view-btn', view === 'cards' && 'active')}
+              onClick={() => setViewMode('cards')}
+            >
+              Tarjetas
+            </button>
+          </div>
+
+          <button className="btn secondary" onClick={() => query.refetch()} type="button">
+            Refrescar
+          </button>
+        </div>
       </div>
 
       <div className="summary-grid">
@@ -145,59 +184,133 @@ export function OperationsPage() {
 
       {error && <div className="error-box">{friendlyError(error.code, error.message)}</div>}
 
-      <div className="panel table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Operacion</th>
-              <th>Tenant</th>
-              <th>Tipo</th>
-              <th>Estado</th>
-              <th>Intento</th>
-              <th>Solicitado por</th>
-              <th>Inicio</th>
-              <th>Fin</th>
-              <th>PR</th>
-            </tr>
-          </thead>
-          <tbody>
-            {query.isLoading && <SkeletonTableRows columns={9} />}
-            {!query.isLoading && query.data?.items.length === 0 && (
+      {view === 'table' && (
+        <div className="panel table-wrap">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={9}>
-                  <EmptyState
-                    title="Sin operaciones para mostrar"
-                    description="No hay operaciones para los filtros actuales. Ajusta tenant, estado o tipo para continuar."
-                    action={
-                      <button
-                        className="btn secondary"
-                        type="button"
-                        onClick={() => updateFilters({ tenantId: '', status: '', type: '' })}
-                      >
-                        Limpiar filtros
-                      </button>
-                    }
-                  />
-                </td>
+                <th>Operacion</th>
+                <th>Tenant</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Intento</th>
+                <th>Solicitado por</th>
+                <th>Inicio</th>
+                <th>Fin</th>
+                <th>PR</th>
               </tr>
-            )}
-            {query.data?.items.map((item) => (
-              <tr key={item.operationId}>
-                <td className="word-break">{item.operationId}</td>
-                <td>
+            </thead>
+            <tbody>
+              {query.isLoading && <SkeletonTableRows columns={9} />}
+              {!query.isLoading && query.data?.items.length === 0 && (
+                <tr>
+                  <td colSpan={9}>
+                    <EmptyState
+                      title="Sin operaciones para mostrar"
+                      description="No hay operaciones para los filtros actuales. Ajusta tenant, estado o tipo para continuar."
+                      action={
+                        <button
+                          className="btn secondary"
+                          type="button"
+                          onClick={() => updateFilters({ tenantId: '', status: '', type: '' })}
+                        >
+                          Limpiar filtros
+                        </button>
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+              {query.data?.items.map((item) => (
+                <tr key={item.operationId}>
+                  <td className="word-break">{item.operationId}</td>
+                  <td>
+                    <Link to={`/tenants/${item.tenantId}?operationId=${item.operationId}`} className="tenant-link">
+                      {item.tenantId}
+                    </Link>
+                  </td>
+                  <td>{item.operationType}</td>
+                  <td>
+                    <OperationStatusBadge status={item.status} />
+                  </td>
+                  <td>{item.attemptNumber}</td>
+                  <td>{item.requestedBy}</td>
+                  <td>{formatDate(item.startedAt)}</td>
+                  <td>{formatDate(item.endedAt)}</td>
+                  <td>
+                    {item.pullRequest?.url ? (
+                      <a href={item.pullRequest.url} target="_blank" rel="noreferrer">
+                        #{item.pullRequest.numero} · {item.pullRequest.estado}
+                      </a>
+                    ) : (
+                      item.pullRequest?.estado ?? 'n/a'
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {view === 'cards' && (
+        <div className="cards-grid">
+          {query.isLoading &&
+            Array.from({ length: 6 }).map((_, index) => (
+              <article key={`operation-card-skeleton-${index}`} className="panel entity-card">
+                <div className="skeleton-line skeleton-line-2" />
+                <div className="skeleton-line skeleton-line-1" />
+                <div className="skeleton-line skeleton-line-0" />
+              </article>
+            ))}
+
+          {!query.isLoading && query.data?.items.length === 0 && (
+            <div className="panel">
+              <EmptyState
+                title="Sin operaciones para mostrar"
+                description="No hay operaciones para los filtros actuales. Ajusta tenant, estado o tipo para continuar."
+                action={
+                  <button
+                    className="btn secondary"
+                    type="button"
+                    onClick={() => updateFilters({ tenantId: '', status: '', type: '' })}
+                  >
+                    Limpiar filtros
+                  </button>
+                }
+              />
+            </div>
+          )}
+
+          {query.data?.items.map((item) => (
+            <article key={item.operationId} className="panel entity-card">
+              <div className="entity-card-head">
+                <div>
+                  <p className="entity-meta">Operacion</p>
+                  <p className="entity-card-title word-break">{item.operationId}</p>
+                </div>
+                <OperationStatusBadge status={item.status} />
+              </div>
+
+              <dl className="entity-kv">
+                <dt>Tenant</dt>
+                <dd>
                   <Link to={`/tenants/${item.tenantId}?operationId=${item.operationId}`} className="tenant-link">
                     {item.tenantId}
                   </Link>
-                </td>
-                <td>{item.operationType}</td>
-                <td>
-                  <OperationStatusBadge status={item.status} />
-                </td>
-                <td>{item.attemptNumber}</td>
-                <td>{item.requestedBy}</td>
-                <td>{formatDate(item.startedAt)}</td>
-                <td>{formatDate(item.endedAt)}</td>
-                <td>
+                </dd>
+                <dt>Tipo</dt>
+                <dd>{item.operationType}</dd>
+                <dt>Intento</dt>
+                <dd>{item.attemptNumber}</dd>
+                <dt>Solicitado por</dt>
+                <dd>{item.requestedBy}</dd>
+                <dt>Inicio</dt>
+                <dd>{formatDate(item.startedAt)}</dd>
+                <dt>Fin</dt>
+                <dd>{formatDate(item.endedAt)}</dd>
+                <dt>PR</dt>
+                <dd>
                   {item.pullRequest?.url ? (
                     <a href={item.pullRequest.url} target="_blank" rel="noreferrer">
                       #{item.pullRequest.numero} · {item.pullRequest.estado}
@@ -205,12 +318,12 @@ export function OperationsPage() {
                   ) : (
                     item.pullRequest?.estado ?? 'n/a'
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </dd>
+              </dl>
+            </article>
+          ))}
+        </div>
+      )}
 
       <div className="pager">
         <button className="btn secondary" type="button" onClick={() => movePage(page - 1)} disabled={page <= 0}>

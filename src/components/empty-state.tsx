@@ -10,7 +10,7 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
     <div className="empty-state">
       <div className="empty-state-icon" aria-hidden>
-        o
+        EP
       </div>
       <h4>{title}</h4>
       <p>{description}</p>
