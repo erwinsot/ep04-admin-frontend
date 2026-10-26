@@ -2,13 +2,13 @@ import type { OperationStatus } from '@/types/ep04'
 import { cn } from '@/lib/utils'
 
 const statusMap: Record<OperationStatus, string> = {
-  PENDING: 'op-badge pending',
-  VALIDATING: 'op-badge validating',
-  PROVISIONING: 'op-badge provisioning',
-  SUCCESS: 'op-badge success',
-  FAILED: 'op-badge failed',
+  PENDING: 'b-p',
+  VALIDATING: 'b-p',
+  PROVISIONING: 'b-v',
+  SUCCESS: 'b-ok',
+  FAILED: 'b-f',
 }
 
 export function OperationStatusBadge({ status }: { status: OperationStatus }) {
-  return <span className={cn('op-badge', statusMap[status])}>{status}</span>
+  return <span className={cn('badge', statusMap[status])}>{status}</span>
 }

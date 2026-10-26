@@ -2,14 +2,14 @@ import type { TenantStatus } from '@/types/ep04'
 import { cn } from '@/lib/utils'
 
 const statusMap: Record<TenantStatus, string> = {
-  PENDING: 'badge pending',
-  VALIDATING: 'badge validating',
-  PROVISIONING: 'badge provisioning',
-  READY: 'badge ready',
-  READY_FOR_INGESTION: 'badge ready-ingestion',
-  FAILED: 'badge failed',
-  DELETING: 'badge deleting',
-  DELETED: 'badge deleted',
+  PENDING: 'b-p',
+  VALIDATING: 'b-v',
+  PROVISIONING: 'b-v',
+  READY: 'b-ok',
+  READY_FOR_INGESTION: 'b-ok',
+  FAILED: 'b-f',
+  DELETING: 'b-n',
+  DELETED: 'b-n',
 }
 
 export function StatusBadge({ status }: { status: TenantStatus }) {

@@ -2,8 +2,11 @@
   "0": "operations-page.tsx",
   "1": "package.json",
   "2": "hooks.ts",
+  "3": "tenant-detail-page.tsx",
   "4": "compilerOptions",
-  "6": "App.tsx",
+  "5": "tenants-list-page.tsx",
+  "6": "dependencies",
+  "7": "cn",
   "8": "compilerOptions",
   "9": "tsconfig.json",
   "10": "vite",
@@ -13,5 +16,8 @@
   "14": "EP04 Admin Frontend - Project State",
   "15": "AGENTS.md",
   "16": "CLAUDE.md",
-  "17": ".claude/CLAUDE.md"
+  "17": ".claude/CLAUDE.md",
+  "18": "devDependencies",
+  "19": "utils.ts",
+  "20": "ApiError"
 }

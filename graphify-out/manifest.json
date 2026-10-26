@@ -36,16 +36,16 @@
     "semantic_hash": "8eb67b53206ad5fdace5fe34a3a5062c"
   },
   "src/components/layout.tsx": {
-    "mtime": 1792958399.5404935,
-    "seen": 1793040521.6361861,
-    "ast_hash": "1b41e59477624408dd352fad177a7fe6",
-    "semantic_hash": "1b41e59477624408dd352fad177a7fe6"
+    "mtime": 1793048760.061829,
+    "seen": 1793048935.163691,
+    "ast_hash": "d6ca6b6e35d37408810f31bb38c39f7a",
+    "semantic_hash": ""
   },
   "src/components/operation-status-badge.tsx": {
-    "mtime": 1792958208.5169253,
-    "seen": 1793040521.6361868,
-    "ast_hash": "fa62d42dcd94651267f2962e73d30e68",
-    "semantic_hash": "fa62d42dcd94651267f2962e73d30e68"
+    "mtime": 1793048760.061829,
+    "seen": 1793048935.1636925,
+    "ast_hash": "cbad8f02607d171d9dfd724da824ee3b",
+    "semantic_hash": ""
   },
   "src/components/skeleton-table-rows.tsx": {
     "mtime": 1792958369.179854,
@@ -54,10 +54,10 @@
     "semantic_hash": "80fc24661b21ff360f26e5dc2218e468"
   },
   "src/components/status-badge.tsx": {
-    "mtime": 1792958256.1235054,
-    "seen": 1793040521.6361885,
-    "ast_hash": "dacce58573358ab129c20e5eaec191f6",
-    "semantic_hash": "dacce58573358ab129c20e5eaec191f6"
+    "mtime": 1793048760.061829,
+    "seen": 1793048935.163695,
+    "ast_hash": "1e35a862cfe16d2d39c3afa2a5cc45e1",
+    "semantic_hash": ""
   },
   "src/constants/catalogs.ts": {
     "mtime": 1792958185.5379293,
@@ -90,10 +90,10 @@
     "semantic_hash": "381031e6fb6117d3e8d8105c93ac5da5"
   },
   "src/lib/utils.ts": {
-    "mtime": 1792791183.6343718,
-    "seen": 1793040521.6361935,
-    "ast_hash": "96dd2918eb88ca6ca70a04083591e684",
-    "semantic_hash": "96dd2918eb88ca6ca70a04083591e684"
+    "mtime": 1793048656.0801563,
+    "seen": 1793048935.1637018,
+    "ast_hash": "a360e40342cc29bd2bdbc597f4b1cd70",
+    "semantic_hash": ""
   },
   "src/main.tsx": {
     "mtime": 1792791055.6459556,
@@ -108,21 +108,21 @@
     "semantic_hash": "5ede951eb512f4135fcccb3bc1dd760b"
   },
   "src/pages/operations-page.tsx": {
-    "mtime": 1793045858.7793128,
-    "seen": 1793045929.0084662,
-    "ast_hash": "fa271b735c257fd875fdf3ca73e8e887",
+    "mtime": 1793048818.0865242,
+    "seen": 1793048935.1637049,
+    "ast_hash": "be35862a48f9f38edef6c6c7bfb87f25",
     "semantic_hash": ""
   },
   "src/pages/tenant-detail-page.tsx": {
-    "mtime": 1793045862.6699681,
-    "seen": 1793045929.0084674,
-    "ast_hash": "259b10a18e99720686492e23c217f9be",
+    "mtime": 1793048886.8133404,
+    "seen": 1793048935.1637058,
+    "ast_hash": "8478e550139283f18e3e7f71264c208a",
     "semantic_hash": ""
   },
   "src/pages/tenants-list-page.tsx": {
-    "mtime": 1793042706.4527476,
-    "seen": 1793042715.682741,
-    "ast_hash": "5cc8cb776d762cf9d5c5e8e14fac6497",
+    "mtime": 1793048794.388806,
+    "seen": 1793048935.1637065,
+    "ast_hash": "082c83eae48aaaf4bfef2726a17a390a",
     "semantic_hash": ""
   },
   "src/types/ep04.ts": {
@@ -222,9 +222,9 @@
     "semantic_hash": ""
   },
   "deploy/deployment.yaml": {
-    "mtime": 1793046609.2385662,
-    "seen": 1793047348.6534216,
-    "ast_hash": "067ba3adf8dcdca06a864881227068b1",
+    "mtime": 1793047436.8307457,
+    "seen": 1793048935.163731,
+    "ast_hash": "fd7b704bfcb1eedf6ba5a1ea4e6b5ff4",
     "semantic_hash": ""
   },
   "deploy/hpa.yaml": {
@@ -275,34 +275,16 @@
     "ast_hash": "a648c424b71cb75af0719b616bc4fad9",
     "semantic_hash": ""
   },
-  ".tmp_ref_design/a0d5eaa2-6897-44c9-bd3a-3bbaea7c263d.html": {
-    "mtime": 1793043458.787027,
-    "seen": 1793045929.0084772,
-    "ast_hash": "6cfc795098d069d3c905cf49d80f1fa9",
-    "semantic_hash": ""
-  },
-  ".tmp_ref_design/a3246a44-b5a5-402b-a2e2-ff37fac17cde.html": {
-    "mtime": 1793043458.7863512,
-    "seen": 1793045929.0084782,
-    "ast_hash": "a6b30de10d3757f459640faa58f26e8e",
-    "semantic_hash": ""
-  },
-  ".tmp_ref_design/b14b3a8b-5b58-405b-b208-a13ad29197cc.html": {
-    "mtime": 1793043458.7859833,
-    "seen": 1793045929.0084789,
-    "ast_hash": "caae2acc36d1369bab44cdce867ea54d",
-    "semantic_hash": ""
-  },
-  ".tmp_ref_design/d99fd1d4-484a-41d3-8f0f-7ecf534b9169.html": {
-    "mtime": 1793043458.787698,
-    "seen": 1793045929.0084798,
-    "ast_hash": "c60088f17448c98f7d62a3c5209797f0",
-    "semantic_hash": ""
-  },
   "EP04 Admin \u2013 Tenants (redise\u00f1o).html": {
     "mtime": 1793043283.718935,
     "seen": 1793045929.008483,
     "ast_hash": "3ff44ebf27c4a9502bbd88e26cc8c11d",
+    "semantic_hash": ""
+  },
+  "src/components/icons.tsx": {
+    "mtime": 1793048743.3021822,
+    "seen": 1793048935.1636891,
+    "ast_hash": "4997a956177a35745970e0e810c22ad0",
     "semantic_hash": ""
   }
 }

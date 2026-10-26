@@ -4,158 +4,144 @@ import { ACTIVE_OPERATION_STATUSES } from '@/constants/catalogs'
 import { useOperations } from '@/features/tenants/hooks'
 import { ApiError } from '@/lib/api'
 import { friendlyError } from '@/lib/error-messages'
-import { clamp, cn, formatDate } from '@/lib/utils'
+import { clamp, cn, copyText, formatDuration, formatRelativeDate, shortId } from '@/lib/utils'
 import { OperationStatusBadge } from '@/components/operation-status-badge'
 import { EmptyState } from '@/components/empty-state'
 import { SkeletonTableRows } from '@/components/skeleton-table-rows'
-import type { OperationStatus, OperationType } from '@/types/ep04'
+import { CopyIcon, RefreshIcon, SearchIcon } from '@/components/icons'
+import type { OperationStatus, OperationType, ProvisioningOperation, PullRequestStatus } from '@/types/ep04'
 
 const DEFAULT_SIZE = 20
+const VIEW_STORAGE_KEY = 'ep04.operations.view-mode'
 
 type ViewMode = 'table' | 'cards'
 
-const VIEW_STORAGE_KEY = 'ep04.operations.view-mode'
-
-const STATUS_FILTER_OPTIONS: Array<{ label: string; value: OperationStatus | '' }> = [
+const STATUS_FILTERS: Array<{ label: string; value: OperationStatus | '' }> = [
   { label: 'Todos', value: '' },
   { label: 'Success', value: 'SUCCESS' },
   { label: 'Failed', value: 'FAILED' },
 ]
 
-const TYPE_FILTER_OPTIONS: Array<{ label: string; value: OperationType | '' }> = [
+const TYPE_FILTERS: Array<{ label: string; value: OperationType | '' }> = [
   { label: 'Todos', value: '' },
   { label: 'Create', value: 'CREATE' },
   { label: 'Retry', value: 'RETRY' },
   { label: 'Delete', value: 'DELETE' },
 ]
 
+const TYPE_CLASS: Record<OperationType, string> = {
+  CREATE: 't-c',
+  RETRY: 't-r',
+  DELETE: 't-d',
+}
+
+const PR_LABEL: Record<PullRequestStatus['estado'], { text: string; tone: 'g' | 'a' | 'x' }> = {
+  FUSIONADO: { text: 'Fusionado', tone: 'g' },
+  PENDIENTE_REVISION: { text: 'Pendiente revisión', tone: 'a' },
+  PENDIENTE_PUBLICACION: { text: 'Pendiente publicación', tone: 'a' },
+  CERRADO_SIN_FUSIONAR: { text: 'Cerrado sin fusionar', tone: 'x' },
+}
+
+function barColor(status: OperationStatus) {
+  if (status === 'FAILED') return '#A12A20'
+  if (status === 'SUCCESS') return '#0E6B4F'
+  return '#1B4F86'
+}
+
 function readStoredView(): ViewMode | null {
   if (typeof window === 'undefined') return null
   const value = window.localStorage.getItem(VIEW_STORAGE_KEY)
-  if (value === 'table' || value === 'cards') return value
-  return null
+  return value === 'table' || value === 'cards' ? value : null
 }
 
-function formatRelativeDate(isoDate: string) {
-  const date = new Date(isoDate)
-  if (Number.isNaN(date.getTime())) return formatDate(isoDate)
+function PullRequestPill({ pr }: { pr: PullRequestStatus | null }) {
+  if (!pr || (pr.numero === null && !pr.url)) return <span className="na">—</span>
 
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const yesterday = new Date(today)
-  yesterday.setDate(today.getDate() - 1)
-  const inputDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const timePart = date.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })
+  const meta = PR_LABEL[pr.estado] ?? { text: pr.estado, tone: 'x' as const }
+  const text = `${pr.numero !== null ? `#${pr.numero} · ` : ''}${meta.text}`
 
-  if (inputDay.getTime() === today.getTime()) return `Hoy, ${timePart}`
-  if (inputDay.getTime() === yesterday.getTime()) return `Ayer, ${timePart}`
-
-  return formatDate(isoDate)
-}
-
-function formatDuration(startIso: string, endIso: string | null) {
-  const start = new Date(startIso)
-  const end = endIso ? new Date(endIso) : new Date()
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 'n/a'
-
-  const diffMs = Math.max(0, end.getTime() - start.getTime())
-  const totalMinutes = Math.floor(diffMs / 60000)
-
-  if (totalMinutes < 1) return '< 1 min'
-  if (totalMinutes < 60) return `${totalMinutes} min`
-
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`
-}
-
-function compactOperationId(operationId: string) {
-  if (operationId.length <= 18) return operationId
-  return `${operationId.slice(0, 8)}…${operationId.slice(-6)}`
-}
-
-function formatPullRequestState(state: string) {
-  if (!state) return 'n/a'
-  const words = state.toLowerCase().split('_')
-  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+  return pr.url ? (
+    <a className={cn('pr', meta.tone)} href={pr.url} target="_blank" rel="noreferrer">
+      {text}
+    </a>
+  ) : (
+    <span className={cn('pr', meta.tone)}>{text}</span>
+  )
 }
 
 export function OperationsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [copiedOperationId, setCopiedOperationId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const page = clamp(Number(searchParams.get('page') ?? '0') || 0, 0, Number.MAX_SAFE_INTEGER)
   const size = clamp(Number(searchParams.get('size') ?? String(DEFAULT_SIZE)) || DEFAULT_SIZE, 1, 200)
   const tenantId = searchParams.get('tenantId') ?? ''
-  const status = (searchParams.get('status') as OperationStatus | '') ?? ''
-  const type = (searchParams.get('type') as OperationType | '') ?? ''
+  const status = (searchParams.get('status') as OperationStatus | null) ?? ''
+  const type = (searchParams.get('type') as OperationType | null) ?? ''
   const viewParam = searchParams.get('view')
-  const view = (viewParam === 'table' || viewParam === 'cards' ? viewParam : readStoredView()) ?? 'table'
+  const view: ViewMode = (viewParam === 'table' || viewParam === 'cards' ? viewParam : readStoredView()) ?? 'table'
 
   const query = useOperations({ page, size, status, type, tenantId: tenantId || undefined })
 
-  const totalPages = useMemo(() => {
-    if (!query.data) return 1
-    return Math.max(1, Math.ceil(query.data.total / query.data.size))
-  }, [query.data])
+  const items = useMemo(() => query.data?.items ?? [], [query.data])
+  const total = query.data?.total ?? 0
+  const totalPages = query.data ? Math.max(1, Math.ceil(query.data.total / query.data.size)) : 1
 
-  const summary = useMemo(() => {
-    const items = query.data?.items ?? []
-    const activeCount = items.filter((item) => ACTIVE_OPERATION_STATUSES.includes(item.status)).length
-    const failedCount = items.filter((item) => item.status === 'FAILED').length
-    const successCount = items.filter((item) => item.status === 'SUCCESS').length
+  const counts = useMemo(
+    () => ({
+      active: items.filter((item) => ACTIVE_OPERATION_STATUSES.includes(item.status)).length,
+      success: items.filter((item) => item.status === 'SUCCESS').length,
+      failed: items.filter((item) => item.status === 'FAILED').length,
+    }),
+    [items],
+  )
 
-    return {
-      total: query.data?.total ?? 0,
-      shown: items.length,
-      activeCount,
-      failedCount,
-      successCount,
-    }
-  }, [query.data])
-
-  const updateFilters = (next: Record<string, string>) => {
+  const updateParams = (next: Record<string, string>, resetPage = false) => {
     const params = new URLSearchParams(searchParams)
     Object.entries(next).forEach(([key, value]) => {
-      if (!value) {
-        params.delete(key)
-      } else {
-        params.set(key, value)
-      }
+      if (value) params.set(key, value)
+      else params.delete(key)
     })
-    if (next.tenantId !== undefined || next.status !== undefined || next.type !== undefined || next.size !== undefined) {
-      params.set('page', '0')
-    }
+    if (resetPage) params.set('page', '0')
     setSearchParams(params)
   }
 
-  const movePage = (nextPage: number) => {
-    const params = new URLSearchParams(searchParams)
-    params.set('page', String(clamp(nextPage, 0, totalPages - 1)))
-    setSearchParams(params)
+  const setView = (next: ViewMode) => {
+    window.localStorage.setItem(VIEW_STORAGE_KEY, next)
+    updateParams({ view: next })
   }
 
-  const setViewMode = (nextView: ViewMode) => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(VIEW_STORAGE_KEY, nextView)
-    }
-    const params = new URLSearchParams(searchParams)
-    params.set('view', nextView)
-    setSearchParams(params)
-  }
-
-  const copyOperationId = async (operationId: string) => {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) return
-    try {
-      await navigator.clipboard.writeText(operationId)
-      setCopiedOperationId(operationId)
-      window.setTimeout(() => setCopiedOperationId((current) => (current === operationId ? null : current)), 1500)
-    } catch {
-      setCopiedOperationId(null)
-    }
+  const handleCopy = async (operationId: string) => {
+    if (!(await copyText(operationId))) return
+    setCopiedId(operationId)
+    window.setTimeout(() => setCopiedId((current) => (current === operationId ? null : current)), 1500)
   }
 
   const error = query.error as ApiError | null
+
+  const renderEmpty = () => (
+    <EmptyState
+      title="Sin operaciones para mostrar"
+      description="No hay operaciones para los filtros actuales. Ajusta tenant, estado o tipo para continuar."
+      action={
+        <button className="btn" type="button" onClick={() => updateParams({ tenantId: '', status: '', type: '' }, true)}>
+          Limpiar filtros
+        </button>
+      }
+    />
+  )
+
+  const copyButton = (item: ProvisioningOperation) => (
+    <button
+      type="button"
+      className={cn('cp', copiedId === item.operationId && 'copied')}
+      aria-label="Copiar ID de operación"
+      title={copiedId === item.operationId ? 'Copiado' : 'Copiar ID de operación'}
+      onClick={() => handleCopy(item.operationId)}
+    >
+      <CopyIcon />
+    </button>
+  )
 
   return (
     <section className="stack-lg">
@@ -164,86 +150,92 @@ export function OperationsPage() {
           <h1>Operaciones</h1>
           <p>Seguimiento global de CREATE, RETRY y DELETE con su estado asíncrono.</p>
         </div>
-        <div className="actions-inline">
-          <button className="btn secondary" onClick={() => query.refetch()} type="button">
-            Refrescar
-          </button>
-        </div>
+        <button className="btn" type="button" onClick={() => query.refetch()}>
+          <RefreshIcon />
+          Refrescar
+        </button>
       </div>
 
-      <div className="summary-grid operations-summary">
-        <article className="summary-card">
-          <span>Total</span>
-          <strong>{summary.total}</strong>
-        </article>
-        <article className="summary-card">
-          <span>Activas</span>
-          <strong>{summary.activeCount}</strong>
-        </article>
-        <article className="summary-card">
-          <span>Exitosas</span>
-          <strong>{summary.successCount}</strong>
-        </article>
-        <article className="summary-card">
-          <span>Fallidas</span>
-          <strong>{summary.failedCount}</strong>
-        </article>
-      </div>
-
-      <div className="operations-toolbar">
-        <label className="operations-search" aria-label="Buscar por tenant">
-          <span className="operations-search-label">Buscar por tenant</span>
-          <span className="operations-search-icon" aria-hidden="true">
-            ⌕
+      <div className="kpis">
+        <button type="button" className={cn('kpi', status === '' && 'sel')} onClick={() => updateParams({ status: '' }, true)}>
+          <span className="l">Total</span>
+          <span className="n">{total}</span>
+        </button>
+        <div className="kpi">
+          <span className="l" style={{ color: '#1B4F86' }}>
+            Activas
           </span>
+          <span className="n">{counts.active}</span>
+        </div>
+        <button
+          type="button"
+          className={cn('kpi', status === 'SUCCESS' && 'sel')}
+          onClick={() => updateParams({ status: 'SUCCESS' }, true)}
+        >
+          <span className="l" style={{ color: '#0B5A42' }}>
+            Exitosas
+          </span>
+          <span className="n">{counts.success}</span>
+        </button>
+        <button
+          type="button"
+          className={cn('kpi', status === 'FAILED' && 'sel')}
+          onClick={() => updateParams({ status: 'FAILED' }, true)}
+        >
+          <span className="l" style={{ color: '#A12A20' }}>
+            Fallidas
+          </span>
+          <span className="n" style={{ color: '#A12A20' }}>
+            {counts.failed}
+          </span>
+        </button>
+      </div>
+
+      <div className="toolbar">
+        <label className="search sm">
+          <span className="sr">Buscar por tenant</span>
+          <SearchIcon />
           <input
+            type="text"
             value={tenantId}
-            onChange={(event) => updateFilters({ tenantId: event.target.value.trim() })}
             placeholder="Tenant ID, ej. acme-co"
+            onChange={(event) => updateParams({ tenantId: event.target.value.trim() }, true)}
           />
         </label>
 
-        <div className="operations-pill-group">
-          <span className="operations-group-label">Estado</span>
-          {STATUS_FILTER_OPTIONS.map((option) => (
+        <div className="chips" role="group" aria-label="Filtrar por estado">
+          <span className="lab">Estado</span>
+          {STATUS_FILTERS.map((option) => (
             <button
               key={option.label}
               type="button"
-              className={cn('status-pill', status === option.value && 'active')}
-              onClick={() => updateFilters({ status: option.value })}
+              className={cn('chip', status === option.value && 'on')}
+              onClick={() => updateParams({ status: option.value }, true)}
             >
               {option.label}
             </button>
           ))}
         </div>
 
-        <div className="operations-pill-group">
-          <span className="operations-group-label">Tipo</span>
-          {TYPE_FILTER_OPTIONS.map((option) => (
+        <div className="chips" role="group" aria-label="Filtrar por tipo">
+          <span className="lab">Tipo</span>
+          {TYPE_FILTERS.map((option) => (
             <button
               key={option.label}
               type="button"
-              className={cn('status-pill', type === option.value && 'active')}
-              onClick={() => updateFilters({ type: option.value })}
+              className={cn('chip', type === option.value && 'on')}
+              onClick={() => updateParams({ type: option.value }, true)}
             >
               {option.label}
             </button>
           ))}
         </div>
 
-        <div className="view-switch" role="group" aria-label="Modo de visualizacion">
-          <button
-            type="button"
-            className={cn('view-btn', view === 'table' && 'active')}
-            onClick={() => setViewMode('table')}
-          >
+        <div className="seg" role="group" aria-label="Modo de visualización">
+          <button type="button" className={cn('chip', view === 'table' && 'on')} onClick={() => setView('table')}>
             Tabla
           </button>
-          <button
-            type="button"
-            className={cn('view-btn', view === 'cards' && 'active')}
-            onClick={() => setViewMode('cards')}
-          >
+          <button type="button" className={cn('chip', view === 'cards' && 'on')} onClick={() => setView('cards')}>
             Tarjetas
           </button>
         </div>
@@ -252,8 +244,8 @@ export function OperationsPage() {
       {error && <div className="error-box">{friendlyError(error.code, error.message)}</div>}
 
       {view === 'table' && (
-        <div className="panel table-wrap operations-table-wrap">
-          <table className="operations-table">
+        <section className="box">
+          <table>
             <thead>
               <tr>
                 <th>Estado</th>
@@ -268,160 +260,114 @@ export function OperationsPage() {
             </thead>
             <tbody>
               {query.isLoading && <SkeletonTableRows columns={8} />}
-              {!query.isLoading && query.data?.items.length === 0 && (
+              {!query.isLoading && items.length === 0 && (
                 <tr>
-                  <td colSpan={8}>
-                    <EmptyState
-                      title="Sin operaciones para mostrar"
-                      description="No hay operaciones para los filtros actuales. Ajusta tenant, estado o tipo para continuar."
-                      action={
-                        <button
-                          className="btn secondary"
-                          type="button"
-                          onClick={() => updateFilters({ tenantId: '', status: '', type: '' })}
-                        >
-                          Limpiar filtros
-                        </button>
-                      }
-                    />
-                  </td>
+                  <td colSpan={8}>{renderEmpty()}</td>
                 </tr>
               )}
-              {query.data?.items.map((item) => (
-                <tr key={item.operationId}>
+              {items.map((item) => (
+                <tr key={item.operationId} className={cn(item.status === 'FAILED' && 'fail')}>
                   <td>
                     <OperationStatusBadge status={item.status} />
                   </td>
                   <td>
-                    <div className="operation-type-cell">
-                      <strong>{item.operationType}</strong>
-                      <small>intento {item.attemptNumber}</small>
-                    </div>
+                    <span className={cn('ty', TYPE_CLASS[item.operationType])}>{item.operationType}</span>
+                    <span className="try">intento {item.attemptNumber}</span>
                   </td>
                   <td>
-                    <Link to={`/tenants/${item.tenantId}?operationId=${item.operationId}`} className="tenant-link">
-                      {item.tenantId}
-                    </Link>
+                    <Link to={`/tenants/${item.tenantId}?operationId=${item.operationId}`}>{item.tenantId}</Link>
                   </td>
                   <td>
-                    <div className="operation-id-cell">
-                      <span title={item.operationId}>{compactOperationId(item.operationId)}</span>
-                      <button type="button" className="copy-id-btn" onClick={() => copyOperationId(item.operationId)}>
-                        {copiedOperationId === item.operationId ? 'Copiado' : 'Copiar ID'}
-                      </button>
-                    </div>
+                    <span className="idc">
+                      <span className="mono" title={item.operationId}>
+                        {shortId(item.operationId)}
+                      </span>
+                      {copyButton(item)}
+                    </span>
                   </td>
                   <td>{item.requestedBy}</td>
-                  <td>{formatRelativeDate(item.startedAt)}</td>
-                  <td>{formatDuration(item.startedAt, item.endedAt)}</td>
+                  <td className="nw">{formatRelativeDate(item.startedAt)}</td>
+                  <td className="nw">{formatDuration(item.startedAt, item.endedAt)}</td>
                   <td>
-                    {item.pullRequest?.url ? (
-                      <a href={item.pullRequest.url} target="_blank" rel="noreferrer">
-                        #{item.pullRequest.numero} · {formatPullRequestState(item.pullRequest.estado)}
-                      </a>
-                    ) : (
-                      '—'
-                    )}
+                    <PullRequestPill pr={item.pullRequest} />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </section>
       )}
 
       {view === 'cards' && (
-        <div className="cards-grid">
+        <div className="cards">
           {query.isLoading &&
-            Array.from({ length: 6 }).map((_, index) => (
-              <article key={`operation-card-skeleton-${index}`} className="panel entity-card">
+            Array.from({ length: 4 }).map((_, index) => (
+              <article key={index} className="t-card">
                 <div className="skeleton-line skeleton-line-2" />
                 <div className="skeleton-line skeleton-line-1" />
                 <div className="skeleton-line skeleton-line-0" />
               </article>
             ))}
-
-          {!query.isLoading && query.data?.items.length === 0 && (
-            <div className="panel">
-              <EmptyState
-                title="Sin operaciones para mostrar"
-                description="No hay operaciones para los filtros actuales. Ajusta tenant, estado o tipo para continuar."
-              />
-            </div>
-          )}
-
-          {query.data?.items.map((item) => (
-            <article key={item.operationId} className="panel entity-card operation-card">
-              <div className="entity-card-head">
-                <div>
-                  <p className="entity-meta">Operación</p>
-                  <p className="entity-card-title word-break">{item.operationId}</p>
-                </div>
+          {!query.isLoading && items.length === 0 && <div className="box">{renderEmpty()}</div>}
+          {items.map((item) => (
+            <article key={item.operationId} className="t-card">
+              <div className="bar" style={{ background: barColor(item.status) }} />
+              <div className="t-top">
                 <OperationStatusBadge status={item.status} />
+                <span className="when">{formatRelativeDate(item.startedAt)}</span>
               </div>
-
-              <div className="operation-meta-strip" aria-label="Resumen de operacion">
-                <span className="operation-meta-chip">{item.operationType}</span>
-                <span className="operation-meta-chip">Intento {item.attemptNumber}</span>
-                <span className="operation-meta-chip muted">{item.requestedBy}</span>
+              <div className="t-id">
+                <h2>
+                  <Link to={`/tenants/${item.tenantId}?operationId=${item.operationId}`}>{item.tenantId}</Link>
+                </h2>
+                <span className="idc">
+                  <span className="tid" title={item.operationId}>
+                    {shortId(item.operationId)}
+                  </span>
+                  {copyButton(item)}
+                </span>
               </div>
-
-              <dl className="entity-kv">
-                <div className="entity-kv-row">
-                  <dt>Tenant</dt>
-                  <dd>
-                    <Link to={`/tenants/${item.tenantId}?operationId=${item.operationId}`} className="tenant-link">
-                      {item.tenantId}
-                    </Link>
-                  </dd>
-                </div>
-
-                <div className="entity-kv-row">
-                  <dt>Inicio</dt>
-                  <dd className="operation-time">{formatRelativeDate(item.startedAt)}</dd>
-                </div>
-
-                <div className="entity-kv-row">
-                  <dt>Duración</dt>
-                  <dd className="operation-time">{formatDuration(item.startedAt, item.endedAt)}</dd>
-                </div>
-
-                <div className="entity-kv-row">
-                  <dt>PR</dt>
-                  <dd className="operation-pr">
-                    {item.pullRequest?.url ? (
-                      <a href={item.pullRequest.url} target="_blank" rel="noreferrer">
-                        #{item.pullRequest.numero} · {formatPullRequestState(item.pullRequest.estado)}
-                      </a>
-                    ) : (
-                      '—'
-                    )}
-                  </dd>
-                </div>
-              </dl>
+              <div className="meta">
+                <span className={cn('ty', TYPE_CLASS[item.operationType])}>{item.operationType}</span>
+                <span className="tag">intento {item.attemptNumber}</span>
+                <span className="tag">{item.requestedBy}</span>
+                <span className="tag">{formatDuration(item.startedAt, item.endedAt)}</span>
+              </div>
+              <div className="foot">
+                <PullRequestPill pr={item.pullRequest} />
+              </div>
             </article>
           ))}
         </div>
       )}
 
-      <div className="pager">
-        <button className="btn secondary" type="button" onClick={() => movePage(page - 1)} disabled={page <= 0}>
-          Anterior
-        </button>
-        <span>
-          Página {page + 1} de {totalPages}
-        </span>
-        <button
-          className="btn secondary"
-          type="button"
-          onClick={() => movePage(page + 1)}
-          disabled={page + 1 >= totalPages}
-        >
-          Siguiente
-        </button>
-      </div>
+      {totalPages > 1 && (
+        <div className="pager">
+          <button
+            className="btn"
+            type="button"
+            onClick={() => updateParams({ page: String(clamp(page - 1, 0, totalPages - 1)) })}
+            disabled={page <= 0}
+          >
+            Anterior
+          </button>
+          <span>
+            Página {page + 1} de {totalPages}
+          </span>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => updateParams({ page: String(clamp(page + 1, 0, totalPages - 1)) })}
+            disabled={page + 1 >= totalPages}
+          >
+            Siguiente
+          </button>
+        </div>
+      )}
 
-      <p className="tenants-footnote">Mostrando {summary.shown} de {summary.total} operaciones · más recientes primero</p>
+      <footer className="foot-note left">
+        Mostrando {items.length} de {total} operaciones · más recientes primero
+      </footer>
     </section>
   )
 }
