@@ -16,4 +16,4 @@ data:
   COGNITO_LOGOUT_URI: ""
   COGNITO_SCOPES: "openid email profile"
   # "true" permite entrar sin Cognito (solo pruebas locales; nunca en produccion)
-  LOCAL_LOGIN: "false"
+  LOCAL_LOGIN: "true"
