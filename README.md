@@ -77,7 +77,10 @@ Variables consumidas por el frontend:
 | `VITE_API_BASE` | `""` | Base URL del backend. Si queda vacio, el frontend usa rutas relativas (`/api/v1/*`). |
 | `VITE_API_PROXY_TARGET` | `http://host.containers.internal:8080` | Destino real del proxy de Vite en desarrollo para peticiones `/api`. |
 | `VITE_ADMIN_ROLE` | `admin` | Valor enviado en header `X-Admin-Role` para endpoints administrativos. |
-| `VITE_ACTOR` | `admin-ui` | Valor enviado en header `X-Actor`. |
+| `VITE_ACTOR` | `admin-ui` | Valor enviado en header `X-Actor`. Con sesion iniciada se usa el usuario del login. |
+| `VITE_COGNITO_DOMAIN` / `VITE_COGNITO_CLIENT_ID` | `""` | Solo desarrollo local: dominio del Hosted UI de Cognito y App Client (publico, sin secret). En produccion se inyectan en runtime con `COGNITO_DOMAIN` y `COGNITO_CLIENT_ID` (ConfigMap -> `/config.js`). Sin ellos, `npm run dev` ofrece un acceso de desarrollo; el build de produccion no. |
+| `COGNITO_REDIRECT_URI` / `COGNITO_LOGOUT_URI` / `COGNITO_SCOPES` | `<origen>/auth/callback` / `<origen>/login` / `openid email profile` | Opcionales; deben coincidir con el App Client de Cognito. |
+| `LOCAL_LOGIN` | `false` | Con `true` y sin Cognito configurado, el login ofrece "modo local" (sin autenticacion real). Solo para pruebas; en produccion debe ser `false`. |
 
 Ejemplo recomendado (`.env`):
 

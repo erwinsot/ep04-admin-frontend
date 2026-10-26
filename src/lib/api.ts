@@ -1,4 +1,5 @@
 import { env } from '@/lib/config'
+import { UNAUTHORIZED_EVENT, loadSession } from '@/lib/auth'
 import type {
   CreateTenantRequest,
   ErrorResponse,
@@ -48,8 +49,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers.set('X-Admin-Role', env.adminRole)
   }
 
-  if (env.actor) {
-    headers.set('X-Actor', env.actor)
+  const session = loadSession()
+  const actor = session?.username ?? env.actor
+  if (actor) {
+    headers.set('X-Actor', actor)
+  }
+
+  if (session?.token) {
+    headers.set('Authorization', `Bearer ${session.token}`)
   }
 
   if (options.idempotencyKey) {
@@ -70,6 +77,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   const contentType = response.headers.get('content-type')
   const isJson = contentType?.includes('application/json')
+
+  if (response.status === 401 && session) {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+  }
 
   if (!response.ok) {
     const fallback = `HTTP ${response.status}`

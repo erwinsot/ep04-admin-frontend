@@ -22,7 +22,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: frontend
-          image: ghcr.io/erwinsot/ep04-admin-frontend:0.1.7
+          image: ghcr.io/erwinsot/ep04-admin-frontend:0.1.8
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -33,6 +33,36 @@ spec:
                 configMapKeyRef:
                   name: ep04-admin-frontend-config
                   key: API_UPSTREAM
+            - name: COGNITO_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: ep04-admin-frontend-config
+                  key: COGNITO_DOMAIN
+            - name: COGNITO_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: ep04-admin-frontend-config
+                  key: COGNITO_CLIENT_ID
+            - name: COGNITO_REDIRECT_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: ep04-admin-frontend-config
+                  key: COGNITO_REDIRECT_URI
+            - name: COGNITO_LOGOUT_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: ep04-admin-frontend-config
+                  key: COGNITO_LOGOUT_URI
+            - name: COGNITO_SCOPES
+              valueFrom:
+                configMapKeyRef:
+                  name: ep04-admin-frontend-config
+                  key: COGNITO_SCOPES
+            - name: LOCAL_LOGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: ep04-admin-frontend-config
+                  key: LOCAL_LOGIN
           readinessProbe:
             httpGet:
               path: /healthz

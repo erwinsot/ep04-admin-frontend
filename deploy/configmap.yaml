@@ -8,3 +8,12 @@ metadata:
     app.kubernetes.io/part-of: ep04
 data:
   API_UPSTREAM: http://ep04-control-plane.ep04-control-plane.svc.cluster.local:80
+  # Dominio sin https://, p. ej. ep04-admin.auth.us-east-1.amazoncognito.com
+  COGNITO_DOMAIN: ""
+  COGNITO_CLIENT_ID: ""
+  # Vacios = https://<host>/auth/callback y https://<host>/login
+  COGNITO_REDIRECT_URI: ""
+  COGNITO_LOGOUT_URI: ""
+  COGNITO_SCOPES: "openid email profile"
+  # "true" permite entrar sin Cognito (solo pruebas locales; nunca en produccion)
+  LOCAL_LOGIN: "false"

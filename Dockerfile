@@ -24,6 +24,12 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
 
 FROM nginx:1.27-alpine AS production
 ENV API_UPSTREAM=http://backend:8080
+ENV COGNITO_DOMAIN="" \
+    COGNITO_CLIENT_ID="" \
+    COGNITO_REDIRECT_URI="" \
+    COGNITO_LOGOUT_URI="" \
+    COGNITO_SCOPES="openid email profile" \
+    LOCAL_LOGIN="false"
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80

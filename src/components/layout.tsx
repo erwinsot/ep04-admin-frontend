@@ -1,8 +1,10 @@
 import { Link, NavLink } from 'react-router-dom'
+import { useAuth } from '@/features/auth/auth-context'
 import { useHealth } from '@/features/tenants/hooks'
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { data, isError } = useHealth()
+  const { session, logout } = useAuth()
   const healthClass = isError
     ? 'health-pill health-down'
     : data?.status === 'UP'
@@ -27,6 +29,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {isError ? 'DOWN' : (data?.status ?? 'CHECKING')}
           </span>
         </nav>
+        <div className="user-chip">
+          <span className="user-avatar" aria-hidden>
+            {(session?.displayName ?? '?').charAt(0).toUpperCase()}
+          </span>
+          <span className="user-name">{session?.displayName}</span>
+          <button type="button" className="user-logout" onClick={logout}>
+            Salir
+          </button>
+        </div>
       </header>
       <main className="content">{children}</main>
     </div>
