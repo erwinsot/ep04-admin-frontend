@@ -1,0 +1,11 @@
+# Graphify local LLM backend (llama.cpp OpenAI-compatible server)
+export GRAPHIFY_BACKEND=openai
+export OPENAI_BASE_URL=http://127.0.0.1:8085/v1
+export OPENAI_MODEL=Qwen3.8-27B-UD-Q4_K_S.gguf
+
+# Many local OpenAI-compatible servers accept any non-empty key.
+export OPENAI_API_KEY=local
+
+# Optional tuning
+# export GRAPHIFY_API_TIMEOUT=120
+# export GRAPHIFY_MAX_RETRIES=2

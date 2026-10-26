@@ -28,7 +28,7 @@ export function TenantsListPage() {
   const q = searchParams.get('q') ?? ''
   const status = (searchParams.get('status') as typeof TENANT_STATUSES[number] | '') ?? ''
   const viewParam = searchParams.get('view')
-  const view = (viewParam === 'table' || viewParam === 'cards' ? viewParam : readStoredView()) ?? 'table'
+  const view = (viewParam === 'table' || viewParam === 'cards' ? viewParam : readStoredView()) ?? 'cards'
 
   const query = useTenants({ page, size, q, status })
 
@@ -268,16 +268,27 @@ export function TenantsListPage() {
               </div>
 
               <dl className="entity-kv">
-                <dt>Company</dt>
-                <dd>{item.companyName}</dd>
-                <dt>ERP</dt>
-                <dd>
-                  {item.erpType} / {item.integrationMode}
-                </dd>
-                <dt>Environment</dt>
-                <dd>{item.environment}</dd>
-                <dt>Actualizacion</dt>
-                <dd>{formatDate(item.updatedAt)}</dd>
+                <div className="entity-kv-row">
+                  <dt>Company</dt>
+                  <dd>{item.companyName}</dd>
+                </div>
+
+                <div className="entity-kv-row">
+                  <dt>ERP</dt>
+                  <dd>
+                    {item.erpType} / {item.integrationMode}
+                  </dd>
+                </div>
+
+                <div className="entity-kv-row">
+                  <dt>Environment</dt>
+                  <dd>{item.environment}</dd>
+                </div>
+
+                <div className="entity-kv-row">
+                  <dt>Actualizacion</dt>
+                  <dd>{formatDate(item.updatedAt)}</dd>
+                </div>
               </dl>
 
               <div className="entity-actions">

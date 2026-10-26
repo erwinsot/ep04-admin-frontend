@@ -15,6 +15,8 @@ Frontend del modulo administrador de EP04. Esta aplicacion consume el backend en
 - [Imagen de produccion](#imagen-de-produccion)
 - [Despliegue en Kubernetes](#despliegue-en-kubernetes)
 - [Argo CD](#argo-cd)
+- [Para que sirve Graphify en este proyecto](#para-que-sirve-graphify-en-este-proyecto)
+- [Estado actual del proyecto (para humanos e IA)](#estado-actual-del-proyecto-para-humanos-e-ia)
 - [Troubleshooting](#troubleshooting)
 - [Funcionalidades implementadas](#funcionalidades-implementadas)
 - [Estructura del proyecto](#estructura-del-proyecto)
@@ -198,6 +200,51 @@ Manifiestos incluidos:
 Aplicacion declarativa incluida en:
 
 - `argocd/application-ep04-admin-frontend.yaml`
+
+## Para que sirve Graphify en este proyecto
+
+Graphify se usa como memoria tecnica compartida para humanos y agentes IA.
+En vez de releer muchos archivos manualmente, permite consultar un grafo de conocimiento
+del proyecto y responder preguntas de arquitectura, dependencias y flujos.
+
+Beneficios practicos:
+
+- Menos tiempo explorando archivos para entender el proyecto.
+- Mejor contexto para agentes que llegan por primera vez al repo.
+- Estado tecnico consultable en artefactos versionables.
+
+Onboarding rapido para otra persona o IA:
+
+1. Leer `README.md` y `PROJECT_STATE.md`.
+2. Revisar `.graphify` (backend/modelo local) y ajustar puerto/modelo si aplica.
+3. Cargar variables: `source .graphify`.
+4. Construir grafo inicial (solo codigo, sin LLM): `graphify extract . --code-only`.
+5. Consultar: `graphify query "<pregunta>"`, `graphify path "A" "B"`, `graphify explain "X"`.
+6. Despues de cambios de codigo: `graphify update .`.
+
+Si quieres incluir tambien docs/PDF/imagenes en el grafo semantico, usa:
+
+- `graphify extract .`
+
+Artefactos clave generados por Graphify:
+
+- `graphify-out/graph.json`: grafo completo consultable.
+- `graphify-out/GRAPH_REPORT.md`: resumen de arquitectura y comunidades.
+- `graphify-out/wiki/index.md`: wiki navegable (si se genera con opcion wiki).
+
+## Estado actual del proyecto (para humanos e IA)
+
+Resumen rapido:
+
+- Producto: frontend administrativo de EP04 para gestionar tenants y operaciones.
+- Contrato backend: consumo de `/api/v1` y headers administrativos (`X-Admin-Role`, `X-Actor`).
+- Funcionalidad: listado, creacion, detalle, retry, eliminacion y seguimiento de operaciones.
+- Runtime: Vite en desarrollo, Nginx en produccion, manifests para Kubernetes y Argo CD.
+- Integracion IA: el repo ya incluye configuracion de Graphify para flujos Codex/Claude.
+
+Documento de estado detallado:
+
+- `PROJECT_STATE.md`
 
 ## Troubleshooting
 

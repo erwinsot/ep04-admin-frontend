@@ -29,7 +29,7 @@ export function OperationsPage() {
   const status = (searchParams.get('status') as (typeof OPERATION_STATUSES)[number] | '') ?? ''
   const type = (searchParams.get('type') as (typeof OPERATION_TYPES)[number] | '') ?? ''
   const viewParam = searchParams.get('view')
-  const view = (viewParam === 'table' || viewParam === 'cards' ? viewParam : readStoredView()) ?? 'table'
+  const view = (viewParam === 'table' || viewParam === 'cards' ? viewParam : readStoredView()) ?? 'cards'
 
   const query = useOperations({ page, size, status, type, tenantId: tenantId || undefined })
 
@@ -283,7 +283,7 @@ export function OperationsPage() {
           )}
 
           {query.data?.items.map((item) => (
-            <article key={item.operationId} className="panel entity-card">
+            <article key={item.operationId} className="panel entity-card operation-card">
               <div className="entity-card-head">
                 <div>
                   <p className="entity-meta">Operacion</p>
@@ -293,32 +293,52 @@ export function OperationsPage() {
               </div>
 
               <dl className="entity-kv">
-                <dt>Tenant</dt>
-                <dd>
-                  <Link to={`/tenants/${item.tenantId}?operationId=${item.operationId}`} className="tenant-link">
-                    {item.tenantId}
-                  </Link>
-                </dd>
-                <dt>Tipo</dt>
-                <dd>{item.operationType}</dd>
-                <dt>Intento</dt>
-                <dd>{item.attemptNumber}</dd>
-                <dt>Solicitado por</dt>
-                <dd>{item.requestedBy}</dd>
-                <dt>Inicio</dt>
-                <dd>{formatDate(item.startedAt)}</dd>
-                <dt>Fin</dt>
-                <dd>{formatDate(item.endedAt)}</dd>
-                <dt>PR</dt>
-                <dd>
-                  {item.pullRequest?.url ? (
-                    <a href={item.pullRequest.url} target="_blank" rel="noreferrer">
-                      #{item.pullRequest.numero} · {item.pullRequest.estado}
-                    </a>
-                  ) : (
-                    item.pullRequest?.estado ?? 'n/a'
-                  )}
-                </dd>
+                <div className="entity-kv-row">
+                  <dt>Tenant</dt>
+                  <dd>
+                    <Link to={`/tenants/${item.tenantId}?operationId=${item.operationId}`} className="tenant-link">
+                      {item.tenantId}
+                    </Link>
+                  </dd>
+                </div>
+
+                <div className="entity-kv-row">
+                  <dt>Tipo</dt>
+                  <dd>{item.operationType}</dd>
+                </div>
+
+                <div className="entity-kv-row">
+                  <dt>Intento</dt>
+                  <dd>{item.attemptNumber}</dd>
+                </div>
+
+                <div className="entity-kv-row">
+                  <dt>Solicitado por</dt>
+                  <dd>{item.requestedBy}</dd>
+                </div>
+
+                <div className="entity-kv-row">
+                  <dt>Inicio</dt>
+                  <dd className="operation-time">{formatDate(item.startedAt)}</dd>
+                </div>
+
+                <div className="entity-kv-row">
+                  <dt>Fin</dt>
+                  <dd className="operation-time">{formatDate(item.endedAt)}</dd>
+                </div>
+
+                <div className="entity-kv-row">
+                  <dt>PR</dt>
+                  <dd className="operation-pr">
+                    {item.pullRequest?.url ? (
+                      <a href={item.pullRequest.url} target="_blank" rel="noreferrer">
+                        #{item.pullRequest.numero} · {item.pullRequest.estado}
+                      </a>
+                    ) : (
+                      item.pullRequest?.estado ?? 'n/a'
+                    )}
+                  </dd>
+                </div>
               </dl>
             </article>
           ))}
