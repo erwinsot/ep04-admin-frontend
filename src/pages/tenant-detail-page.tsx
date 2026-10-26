@@ -1,4 +1,5 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
 import { EmptyState } from '@/components/empty-state'
 import { OperationStatusBadge } from '@/components/operation-status-badge'
 import { SkeletonTableRows } from '@/components/skeleton-table-rows'
@@ -20,9 +21,40 @@ import { TERMINAL_OPERATION_STATUSES, TERMINAL_TENANT_STATUSES } from '@/constan
 
 const TENANT_OPERATIONS_PAGE_SIZE = 10
 
+const PROVISION_STEPS = [
+  { code: 'CREATE_REQUESTED', label: 'CREATE_REQUESTED', description: 'Solicitud aceptada' },
+  { code: 'VALIDATING', label: 'VALIDATING', description: 'Restricciones validadas' },
+  { code: 'PROVISIONING', label: 'PROVISIONING', description: 'Recursos para el PR' },
+  { code: 'PROVISIONING_FAILED', label: 'PROVISIONING_FAILED', description: 'Falló el aprovisionamiento' },
+]
+
+function formatRelativeDate(isoDate: string) {
+  const date = new Date(isoDate)
+  if (Number.isNaN(date.getTime())) return formatDate(isoDate)
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const inputDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const timePart = date.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })
+
+  if (inputDay.getTime() === today.getTime()) return `Hoy, ${timePart}`
+  if (inputDay.getTime() === yesterday.getTime()) return `Ayer, ${timePart}`
+
+  return formatDate(isoDate)
+}
+
+function formatPullRequestState(state: string) {
+  if (!state) return 'n/a'
+  const words = state.toLowerCase().split('_')
+  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+}
+
 export function TenantDetailPage() {
   const { tenantId = '' } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
   const trackedOperationId = searchParams.get('operationId') ?? ''
 
@@ -48,6 +80,23 @@ export function TenantDetailPage() {
   const detailError = detail.error as ApiError | null
   const operationError = operation.error as ApiError | null
   const pullRequestError = pullRequest.error as ApiError | null
+
+  const steps = useMemo(() => {
+    const actions = new Set((events.data ?? []).map((event) => event.action))
+    const failed = (events.data ?? []).some((event) => event.result === 'FAILED')
+
+    return PROVISION_STEPS.map((step, index) => {
+      const seen = actions.has(step.code)
+      const active = seen && (!actions.has(PROVISION_STEPS[index + 1]?.code) || index === PROVISION_STEPS.length - 1)
+      const isFailedStep = failed && step.code.includes('FAILED')
+      return {
+        ...step,
+        seen,
+        active,
+        isFailedStep,
+      }
+    })
+  }, [events.data])
 
   if (detail.isLoading) {
     return (
@@ -75,6 +124,9 @@ export function TenantDetailPage() {
   const deleteError = deleteMutation.error as ApiError | null
   const canDelete = tenant.status !== 'DELETING' && tenant.status !== 'DELETED'
 
+  const latestFailedEvent = (events.data ?? []).find((event) => event.result === 'FAILED')
+  const alertTitle = operation.data?.errorSummary ?? latestFailedEvent?.details ?? readiness.data?.dataPlaneError
+
   const trackOperation = (operationId: string) => {
     const params = new URLSearchParams(searchParams)
     params.set('operationId', operationId)
@@ -94,24 +146,44 @@ export function TenantDetailPage() {
 
   const handleDelete = async () => {
     const confirmed = window.confirm(
-      `Se solicitara la baja del tenant ${tenant.tenantId}. Esto iniciara una operacion DELETE asyncrona. Deseas continuar?`,
+      `Se solicitará la baja del tenant ${tenant.tenantId}. Esto iniciará una operación DELETE asíncrona. ¿Deseas continuar?`,
     )
     if (!confirmed) return
     const response = await deleteMutation.mutateAsync(tenant.tenantId)
     trackOperation(response.operationId)
   }
 
+  const copyField = async (key: string, value: string) => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopiedField(key)
+      window.setTimeout(() => setCopiedField((current) => (current === key ? null : current)), 1500)
+    } catch {
+      setCopiedField(null)
+    }
+  }
+
   return (
-    <section className="stack-lg">
-      <div className="page-head">
-        <div>
-          <h1>{tenant.tenantId}</h1>
+    <section className="stack-lg detail-page">
+      <Link to="/" className="detail-back-link">
+        ← Tenants
+      </Link>
+
+      <div className="panel detail-head">
+        <div className="detail-head-main">
+          <div className="detail-title-row">
+            <h1>
+              {tenant.companyName} ({tenant.country})
+            </h1>
+            <StatusBadge status={tenant.status} />
+          </div>
           <p>
-            {tenant.companyName} ({tenant.country})
+            {tenant.tenantId} · Actualizado {formatRelativeDate(tenant.updatedAt)}
           </p>
         </div>
-        <div className="head-actions">
-          <StatusBadge status={tenant.status} />
+
+        <div className="detail-head-actions">
           {tenant.status === 'FAILED' && (
             <button
               type="button"
@@ -119,7 +191,7 @@ export function TenantDetailPage() {
               disabled={retryMutation.isPending}
               onClick={handleRetry}
             >
-              {retryMutation.isPending ? 'Procesando retry...' : 'Retry'}
+              {retryMutation.isPending ? 'Procesando retry...' : 'Reintentar'}
             </button>
           )}
           {canDelete && (
@@ -140,270 +212,315 @@ export function TenantDetailPage() {
         </div>
       </div>
 
-      <div className="status-spotlight panel">
-        <div>
-          <span>Tenant status</span>
-          <strong>{tenant.status}</strong>
+      {alertTitle && (
+        <div className="detail-alert" role="alert">
+          <strong>{alertTitle}</strong>
+          <span>Tenant is not ready yet; revisa dataPlaneStatus y estado de Argo CD.</span>
         </div>
-        <div>
-          <span>Tracking activo</span>
-          <strong>{trackedOperationId || 'n/a'}</strong>
-        </div>
-        <div>
-          <span>Ultima actualizacion</span>
-          <strong>{formatDate(tenant.updatedAt)}</strong>
-        </div>
-      </div>
+      )}
 
       {retryError && <div className="error-box">{friendlyError(retryError.code, retryError.message)}</div>}
       {deleteError && <div className="error-box">{friendlyError(deleteError.code, deleteError.message)}</div>}
+      {operationError && <div className="error-box">{friendlyError(operationError.code, operationError.message)}</div>}
 
-      <div className="grid-3">
-        <article className="panel">
-          <h3>General</h3>
-          <dl>
-            <dt>ERP</dt>
-            <dd>
-              {tenant.erpType} / {tenant.integrationMode}
-            </dd>
-            <dt>Environment</dt>
-            <dd>{tenant.environment}</dd>
-            <dt>Resources</dt>
-            <dd>
-              {tenant.cpu} CPU / {tenant.memoryGib}Gi
-            </dd>
-            <dt>Modules</dt>
-            <dd>{tenant.modules.join(', ')}</dd>
-            <dt>Updated</dt>
-            <dd>{formatDate(tenant.updatedAt)}</dd>
-          </dl>
-        </article>
-
-        <article className="panel">
-          <h3>Pull Request</h3>
-          {pullRequestError && <p className="error-inline">{friendlyError(pullRequestError.code, pullRequestError.message)}</p>}
-          {!pullRequestError && !pullRequest.data && <p>Consultando estado del PR...</p>}
-          {pullRequest.data && (
-            <dl>
-              <dt>Estado</dt>
-              <dd>{pullRequest.data.estado}</dd>
-              <dt>Numero</dt>
-              <dd>{pullRequest.data.numero ?? 'n/a'}</dd>
-              <dt>URL</dt>
-              <dd className="word-break">
-                {pullRequest.data.url ? (
-                  <a href={pullRequest.data.url} target="_blank" rel="noreferrer">
-                    Abrir pull request
-                  </a>
-                ) : (
-                  'n/a'
-                )}
-              </dd>
-            </dl>
-          )}
-        </article>
-
-        <article className="panel">
-          <h3>GitOps</h3>
-          <dl>
-            <dt>Branch</dt>
-            <dd>{tenant.gitOps.branch ?? 'n/a'}</dd>
-            <dt>Repo</dt>
-            <dd className="word-break">{tenant.gitOps.repositoryUrl ?? 'n/a'}</dd>
-            <dt>Reference</dt>
-            <dd className="word-break">{tenant.gitOps.lastReference ?? 'n/a'}</dd>
-          </dl>
-        </article>
-
-        <article className="panel">
-          <h3>Argo CD</h3>
-          <dl>
-            <dt>Application</dt>
-            <dd>{tenant.argoCd.applicationName ?? 'n/a'}</dd>
-            <dt>Sync</dt>
-            <dd>{tenant.argoCd.syncStatus}</dd>
-            <dt>Health</dt>
-            <dd>{tenant.argoCd.healthStatus}</dd>
-            <dt>Ready</dt>
-            <dd>{tenant.argoCd.ready ? 'yes' : 'no'}</dd>
-          </dl>
-        </article>
-      </div>
-
-      <div className="grid-2">
-        <article className="panel">
-          <h3>Operacion en seguimiento</h3>
-          {!trackedOperationId && (
-            <EmptyState
-              title="Sin operacion en seguimiento"
-              description="Selecciona una operacion del historial para activar el tracking detallado."
-            />
-          )}
-          {trackedOperationId && operation.isLoading && <p>Consultando operacion {trackedOperationId}...</p>}
-          {trackedOperationId && operationError && (
-            <div className="error-box">{friendlyError(operationError.code, operationError.message)}</div>
-          )}
-          {operation.data && (
-            <dl>
-              <dt>Operation ID</dt>
-              <dd className="word-break">{operation.data.operationId}</dd>
-              <dt>Tipo</dt>
-              <dd>{operation.data.operationType}</dd>
-              <dt>Estado</dt>
-              <dd>
-                <OperationStatusBadge status={operation.data.status} />
-              </dd>
-              <dt>Intento</dt>
-              <dd>{operation.data.attemptNumber}</dd>
-              <dt>Solicitado por</dt>
-              <dd>{operation.data.requestedBy}</dd>
-              <dt>Inicio</dt>
-              <dd>{formatDate(operation.data.startedAt)}</dd>
-              <dt>Fin</dt>
-              <dd>{formatDate(operation.data.endedAt)}</dd>
-              <dt>Error</dt>
-              <dd>{operation.data.errorSummary ?? 'n/a'}</dd>
-            </dl>
-          )}
-        </article>
-
-        <article className="panel">
-          <h3>Data Platform</h3>
-          <dl>
-            <dt>Tenant UUID</dt>
-            <dd className="word-break">{tenant.dataPlatform.tenantUuid}</dd>
-            <dt>Schema prefix</dt>
-            <dd>{tenant.dataPlatform.schemaPrefix}</dd>
-            <dt>ODS</dt>
-            <dd>{tenant.dataPlatform.odsSchema}</dd>
-            <dt>Staging</dt>
-            <dd>{tenant.dataPlatform.stagingSchema}</dd>
-            <dt>Dimensional</dt>
-            <dd>{tenant.dataPlatform.dimensionalSchema}</dd>
-            <dt>Cube</dt>
-            <dd>{tenant.dataPlatform.cubeSchema}</dd>
-            <dt>Bootstrap</dt>
-            <dd>{tenant.dataPlatform.bootstrapStatus}</dd>
-            <dt>Bootstrap at</dt>
-            <dd>{formatDate(tenant.dataPlatform.bootstrapAt)}</dd>
-          </dl>
-        </article>
-
-        <article className="panel">
-          <h3>Readiness</h3>
-          {!readiness.data && <p>Consultando readiness...</p>}
-          {readiness.data && (
-            <dl>
-              <dt>Ready for ingestion</dt>
-              <dd>{readiness.data.readyForIngestion ? 'yes' : 'no'}</dd>
-              <dt>Data plane ready</dt>
-              <dd>{readiness.data.dataPlaneReady ? 'yes' : 'no'}</dd>
-              <dt>Argo ready</dt>
-              <dd>{readiness.data.argoReady ? 'yes' : 'no'}</dd>
-              <dt>Data plane status</dt>
-              <dd>{readiness.data.dataPlaneStatus}</dd>
-              <dt>Data plane error</dt>
-              <dd>{readiness.data.dataPlaneError ?? 'n/a'}</dd>
-              <dt>Message</dt>
-              <dd>{readiness.data.message}</dd>
-            </dl>
-          )}
-        </article>
-      </div>
-
-      <article className="panel">
-        <h3>Historial de operaciones del tenant</h3>
-        {tenantOperations.isLoading && (
-          <div className="table-wrap">
-            <table>
-              <tbody>
-                <SkeletonTableRows columns={7} rows={4} />
-              </tbody>
-            </table>
-          </div>
-        )}
-        {!tenantOperations.isLoading && (tenantOperations.data?.items.length ?? 0) === 0 && (
-          <EmptyState title="Sin operaciones registradas" description="Aun no hay operaciones para este tenant." />
-        )}
-        {tenantOperations.data && tenantOperations.data.items.length > 0 && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Operacion</th>
-                  <th>Tipo</th>
-                  <th>Estado</th>
-                  <th>Inicio</th>
-                  <th>Fin</th>
-                  <th>Error</th>
-                  <th>PR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tenantOperations.data.items.map((item) => (
-                  <tr key={item.operationId}>
-                    <td>
-                      <button type="button" className="linkish" onClick={() => trackOperation(item.operationId)}>
-                        {item.operationId}
-                      </button>
-                    </td>
-                    <td>{item.operationType}</td>
-                    <td>
-                      <OperationStatusBadge status={item.status} />
-                    </td>
-                    <td>{formatDate(item.startedAt)}</td>
-                    <td>{formatDate(item.endedAt)}</td>
-                    <td>{item.errorSummary ?? 'n/a'}</td>
-                    <td>
-                      {item.pullRequest?.url ? (
-                        <a href={item.pullRequest.url} target="_blank" rel="noreferrer">
-                          #{item.pullRequest.numero} · {item.pullRequest.estado}
-                        </a>
-                      ) : (
-                        item.pullRequest?.estado ?? 'n/a'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </article>
-
-      <article className="panel">
-        <h3>Timeline de eventos</h3>
-        {events.isLoading && (
-          <ul className="timeline">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <li key={`timeline-skeleton-${index}`}>
-                <div className="skeleton-line skeleton-line-2" />
-                <div className="skeleton-line skeleton-line-0" />
-                <div className="skeleton-line skeleton-line-1" />
-              </li>
-            ))}
-          </ul>
-        )}
-        {!events.isLoading && (events.data?.length ?? 0) === 0 && (
-          <EmptyState title="Sin eventos" description="No se encontraron eventos para este tenant por ahora." />
-        )}
-        {(events.data?.length ?? 0) > 0 && (
-          <ul className="timeline">
-            {events.data?.map((event) => (
-              <li key={event.id}>
-                <div className="timeline-head">
-                  <strong>{event.action}</strong>
-                  <span>{formatDate(event.createdAt)}</span>
+      <div className="detail-layout">
+        <div className="detail-main">
+          <article className="panel">
+            <h3>Progreso del aprovisionamiento</h3>
+            <div className="provision-steps">
+              {steps.map((step) => (
+                <div
+                  key={step.code}
+                  className={[
+                    'provision-step',
+                    step.seen ? 'seen' : '',
+                    step.active ? 'active' : '',
+                    step.isFailedStep ? 'failed' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  <strong>{step.label}</strong>
+                  <span>{step.description}</span>
                 </div>
-                <p>{event.details}</p>
-                <small>
-                  result={event.result} actor={event.actor} operation={event.operationId ?? 'n/a'}
-                </small>
-              </li>
-            ))}
-          </ul>
-        )}
-      </article>
+              ))}
+            </div>
+          </article>
+
+          <article className="panel">
+            <h3>Timeline de eventos</h3>
+            <p className="detail-subtext">Operación {trackedOperationId || tenantOperations.data?.items[0]?.operationId || 'n/a'}</p>
+
+            {events.isLoading && (
+              <ul className="timeline">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <li key={`timeline-skeleton-${index}`}>
+                    <div className="skeleton-line skeleton-line-2" />
+                    <div className="skeleton-line skeleton-line-0" />
+                    <div className="skeleton-line skeleton-line-1" />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {!events.isLoading && (events.data?.length ?? 0) === 0 && (
+              <EmptyState title="Sin eventos" description="No se encontraron eventos para este tenant por ahora." />
+            )}
+
+            {(events.data?.length ?? 0) > 0 && (
+              <ul className="timeline">
+                {events.data?.map((event) => (
+                  <li key={event.id}>
+                    <div className="timeline-head">
+                      <strong>{event.action}</strong>
+                      <span>{formatDate(event.createdAt)}</span>
+                    </div>
+                    <p>{event.details}</p>
+                    <small>
+                      result={event.result} · actor={event.actor}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </article>
+
+          <article className="panel">
+            <h3>Historial de operaciones</h3>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Operación</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Error</th>
+                    <th>PR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenantOperations.isLoading && <SkeletonTableRows columns={7} rows={4} />}
+                  {!tenantOperations.isLoading && (tenantOperations.data?.items.length ?? 0) === 0 && (
+                    <tr>
+                      <td colSpan={7}>
+                        <EmptyState title="Sin operaciones registradas" description="Aún no hay operaciones para este tenant." />
+                      </td>
+                    </tr>
+                  )}
+                  {tenantOperations.data?.items.map((item) => (
+                    <tr key={item.operationId}>
+                      <td>
+                        <button type="button" className="linkish" onClick={() => trackOperation(item.operationId)}>
+                          {item.operationId}
+                        </button>
+                      </td>
+                      <td>{item.operationType}</td>
+                      <td>
+                        <OperationStatusBadge status={item.status} />
+                      </td>
+                      <td>{formatDate(item.startedAt)}</td>
+                      <td>{formatDate(item.endedAt)}</td>
+                      <td>{item.errorSummary ?? 'n/a'}</td>
+                      <td>
+                        {item.pullRequest?.url ? (
+                          <a href={item.pullRequest.url} target="_blank" rel="noreferrer">
+                            #{item.pullRequest.numero} · {formatPullRequestState(item.pullRequest.estado)}
+                          </a>
+                        ) : (
+                          'n/a'
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {!trackedOperationId && (
+              <p className="detail-subtext">
+                Sin operación en seguimiento. Selecciona una del historial para ver el tracking detallado.
+              </p>
+            )}
+          </article>
+        </div>
+
+        <aside className="detail-side">
+          <article className="panel detail-info-card">
+            <h3>Readiness</h3>
+            {!readiness.data && <p>Consultando readiness...</p>}
+            {readiness.data && (
+              <div className="readiness-list">
+                <div>
+                  <span>Ready for ingestion</span>
+                  <strong>{readiness.data.readyForIngestion ? 'YES' : 'NO'}</strong>
+                </div>
+                <div>
+                  <span>Data plane ready</span>
+                  <strong>{readiness.data.dataPlaneReady ? 'YES' : 'NO'}</strong>
+                </div>
+                <div>
+                  <span>Argo ready</span>
+                  <strong>{readiness.data.argoReady ? 'YES' : 'NO'}</strong>
+                </div>
+                <div>
+                  <span>Data plane status</span>
+                  <strong>{readiness.data.dataPlaneStatus}</strong>
+                </div>
+              </div>
+            )}
+          </article>
+
+          <article className="panel detail-info-card">
+            <h3>General</h3>
+            <dl className="detail-kv">
+              <div>
+                <dt>ERP</dt>
+                <dd>
+                  {tenant.erpType} · {tenant.integrationMode}
+                </dd>
+              </div>
+              <div>
+                <dt>Environment</dt>
+                <dd>{tenant.environment}</dd>
+              </div>
+              <div>
+                <dt>Resources</dt>
+                <dd>
+                  {tenant.cpu} CPU / {tenant.memoryGib}Gi
+                </dd>
+              </div>
+              <div>
+                <dt>Modules</dt>
+                <dd>{tenant.modules.join(' ')}</dd>
+              </div>
+              <div>
+                <dt>Tracking activo</dt>
+                <dd>{trackedOperationId || 'n/a'}</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article className="panel detail-info-card">
+            <h3>Pull Request</h3>
+            {pullRequestError && <p className="error-inline">{friendlyError(pullRequestError.code, pullRequestError.message)}</p>}
+            {!pullRequestError && !pullRequest.data && <p>Consultando estado del PR...</p>}
+            {pullRequest.data && (
+              <dl className="detail-kv">
+                <div>
+                  <dt>Estado</dt>
+                  <dd>{formatPullRequestState(pullRequest.data.estado)}</dd>
+                </div>
+                <div>
+                  <dt>Número</dt>
+                  <dd>{pullRequest.data.numero ?? 'n/a'}</dd>
+                </div>
+                <div>
+                  <dt>URL</dt>
+                  <dd className="word-break">
+                    {pullRequest.data.url ? (
+                      <a href={pullRequest.data.url} target="_blank" rel="noreferrer">
+                        Abrir pull request
+                      </a>
+                    ) : (
+                      'n/a'
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            )}
+          </article>
+
+          <article className="panel detail-info-card">
+            <h3>GitOps</h3>
+            <dl className="detail-kv">
+              <div>
+                <dt>Branch</dt>
+                <dd>{tenant.gitOps.branch ?? 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>Reference</dt>
+                <dd className="word-break">{tenant.gitOps.lastReference ?? 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>Repo</dt>
+                <dd className="word-break">{tenant.gitOps.repositoryUrl ?? 'n/a'}</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article className="panel detail-info-card">
+            <h3>Argo CD</h3>
+            <dl className="detail-kv">
+              <div>
+                <dt>Application</dt>
+                <dd>{tenant.argoCd.applicationName ?? 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>Sync</dt>
+                <dd>{tenant.argoCd.syncStatus}</dd>
+              </div>
+              <div>
+                <dt>Health</dt>
+                <dd>{tenant.argoCd.healthStatus}</dd>
+              </div>
+              <div>
+                <dt>Ready</dt>
+                <dd>{tenant.argoCd.ready ? 'yes' : 'no'}</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article className="panel detail-info-card">
+            <h3>Data Platform</h3>
+            <dl className="detail-kv">
+              <div>
+                <dt>Tenant UUID</dt>
+                <dd className="detail-copy-row word-break">
+                  <span>{tenant.dataPlatform.tenantUuid}</span>
+                  <button type="button" onClick={() => copyField('tenantUuid', tenant.dataPlatform.tenantUuid)}>
+                    {copiedField === 'tenantUuid' ? 'Copiado' : 'Copiar'}
+                  </button>
+                </dd>
+              </div>
+              <div>
+                <dt>Schema prefix</dt>
+                <dd className="detail-copy-row word-break">
+                  <span>{tenant.dataPlatform.schemaPrefix}</span>
+                  <button type="button" onClick={() => copyField('schemaPrefix', tenant.dataPlatform.schemaPrefix)}>
+                    {copiedField === 'schemaPrefix' ? 'Copiado' : 'Copiar'}
+                  </button>
+                </dd>
+              </div>
+              <div>
+                <dt>ODS</dt>
+                <dd>{tenant.dataPlatform.odsSchema}</dd>
+              </div>
+              <div>
+                <dt>Staging</dt>
+                <dd>{tenant.dataPlatform.stagingSchema}</dd>
+              </div>
+              <div>
+                <dt>Dimensional</dt>
+                <dd>{tenant.dataPlatform.dimensionalSchema}</dd>
+              </div>
+              <div>
+                <dt>Cube</dt>
+                <dd>{tenant.dataPlatform.cubeSchema}</dd>
+              </div>
+              <div>
+                <dt>Bootstrap</dt>
+                <dd>{tenant.dataPlatform.bootstrapStatus}</dd>
+              </div>
+              <div>
+                <dt>Bootstrap at</dt>
+                <dd>{formatDate(tenant.dataPlatform.bootstrapAt)}</dd>
+              </div>
+            </dl>
+          </article>
+        </aside>
+      </div>
     </section>
   )
 }

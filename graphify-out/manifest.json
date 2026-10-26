@@ -108,21 +108,21 @@
     "semantic_hash": "5ede951eb512f4135fcccb3bc1dd760b"
   },
   "src/pages/operations-page.tsx": {
-    "mtime": 1793041650.0491621,
-    "seen": 1793041676.726851,
-    "ast_hash": "2e7c5a5b12549dc6c535baee6cf10299",
+    "mtime": 1793045858.7793128,
+    "seen": 1793045929.0084662,
+    "ast_hash": "fa271b735c257fd875fdf3ca73e8e887",
     "semantic_hash": ""
   },
   "src/pages/tenant-detail-page.tsx": {
-    "mtime": 1792958419.5131166,
-    "seen": 1793040521.6361969,
-    "ast_hash": "0322770466246ee6751f1720016aaa67",
-    "semantic_hash": "0322770466246ee6751f1720016aaa67"
+    "mtime": 1793045862.6699681,
+    "seen": 1793045929.0084674,
+    "ast_hash": "259b10a18e99720686492e23c217f9be",
+    "semantic_hash": ""
   },
   "src/pages/tenants-list-page.tsx": {
-    "mtime": 1793041666.1454237,
-    "seen": 1793041676.7268534,
-    "ast_hash": "99558689c8cb72088ab5ca434d87bb15",
+    "mtime": 1793042706.4527476,
+    "seen": 1793042715.682741,
+    "ast_hash": "5cc8cb776d762cf9d5c5e8e14fac6497",
     "semantic_hash": ""
   },
   "src/types/ep04.ts": {
@@ -222,9 +222,9 @@
     "semantic_hash": ""
   },
   "deploy/deployment.yaml": {
-    "mtime": 1793041196.3345098,
-    "seen": 1793041676.726868,
-    "ast_hash": "50ac339ede21df92813e8ca161c34448",
+    "mtime": 1793041789.3888195,
+    "seen": 1793042715.6827593,
+    "ast_hash": "5080b2a2af4ebfb5d67fa3270711dbed",
     "semantic_hash": ""
   },
   "deploy/hpa.yaml": {
@@ -273,6 +273,36 @@
     "mtime": 1792791055.641083,
     "seen": 1793041078.5195403,
     "ast_hash": "a648c424b71cb75af0719b616bc4fad9",
+    "semantic_hash": ""
+  },
+  ".tmp_ref_design/a0d5eaa2-6897-44c9-bd3a-3bbaea7c263d.html": {
+    "mtime": 1793043458.787027,
+    "seen": 1793045929.0084772,
+    "ast_hash": "6cfc795098d069d3c905cf49d80f1fa9",
+    "semantic_hash": ""
+  },
+  ".tmp_ref_design/a3246a44-b5a5-402b-a2e2-ff37fac17cde.html": {
+    "mtime": 1793043458.7863512,
+    "seen": 1793045929.0084782,
+    "ast_hash": "a6b30de10d3757f459640faa58f26e8e",
+    "semantic_hash": ""
+  },
+  ".tmp_ref_design/b14b3a8b-5b58-405b-b208-a13ad29197cc.html": {
+    "mtime": 1793043458.7859833,
+    "seen": 1793045929.0084789,
+    "ast_hash": "caae2acc36d1369bab44cdce867ea54d",
+    "semantic_hash": ""
+  },
+  ".tmp_ref_design/d99fd1d4-484a-41d3-8f0f-7ecf534b9169.html": {
+    "mtime": 1793043458.787698,
+    "seen": 1793045929.0084798,
+    "ast_hash": "c60088f17448c98f7d62a3c5209797f0",
+    "semantic_hash": ""
+  },
+  "EP04 Admin \u2013 Tenants (redise\u00f1o).html": {
+    "mtime": 1793043283.718935,
+    "seen": 1793045929.008483,
+    "ast_hash": "3ff44ebf27c4a9502bbd88e26cc8c11d",
     "semantic_hash": ""
   }
 }

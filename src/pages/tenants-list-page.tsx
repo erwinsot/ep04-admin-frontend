@@ -1,17 +1,61 @@
 import { Link, useSearchParams } from 'react-router-dom'
-import { useMemo } from 'react'
-import { useTenants } from '@/features/tenants/hooks'
-import { ACTIVE_STATUSES, TENANT_STATUSES } from '@/constants/catalogs'
+import { useMemo, useState } from 'react'
+import { useRetryTenant, useTenants } from '@/features/tenants/hooks'
 import { clamp, cn, formatDate } from '@/lib/utils'
 import { StatusBadge } from '@/components/status-badge'
 import { ApiError } from '@/lib/api'
 import { friendlyError } from '@/lib/error-messages'
 import { EmptyState } from '@/components/empty-state'
 import { SkeletonTableRows } from '@/components/skeleton-table-rows'
+import type { TenantStatus } from '@/types/ep04'
 
 const DEFAULT_SIZE = 20
 type ViewMode = 'table' | 'cards'
 const VIEW_STORAGE_KEY = 'ep04.tenants.view-mode'
+const STATUS_FILTER_OPTIONS: Array<{ label: string; value: TenantStatus | '' }> = [
+  { label: 'Todos', value: '' },
+  { label: 'Failed', value: 'FAILED' },
+  { label: 'Pending', value: 'PENDING' },
+  { label: 'Provisioning', value: 'PROVISIONING' },
+  { label: 'Ready', value: 'READY' },
+]
+
+function toStatusClass(status: TenantStatus) {
+  return `status-${status.toLowerCase().replace(/_/g, '-')}`
+}
+
+function getProgressStep(status: TenantStatus): number | null {
+  switch (status) {
+    case 'PENDING':
+      return 0
+    case 'PROVISIONING':
+      return 1
+    case 'VALIDATING':
+      return 2
+    case 'READY':
+    case 'READY_FOR_INGESTION':
+      return 3
+    default:
+      return null
+  }
+}
+
+function formatCardTime(isoDate: string) {
+  const date = new Date(isoDate)
+  if (Number.isNaN(date.getTime())) return 'n/a'
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const inputDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const timePart = date.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })
+
+  if (inputDay.getTime() === today.getTime()) return `Hoy, ${timePart}`
+  if (inputDay.getTime() === yesterday.getTime()) return `Ayer, ${timePart}`
+
+  return formatDate(isoDate)
+}
 
 function readStoredView(): ViewMode | null {
   if (typeof window === 'undefined') return null
@@ -22,15 +66,17 @@ function readStoredView(): ViewMode | null {
 
 export function TenantsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const [retryingTenantId, setRetryingTenantId] = useState<string | null>(null)
 
   const page = clamp(Number(searchParams.get('page') ?? '0') || 0, 0, Number.MAX_SAFE_INTEGER)
   const size = clamp(Number(searchParams.get('size') ?? String(DEFAULT_SIZE)) || DEFAULT_SIZE, 1, 200)
   const q = searchParams.get('q') ?? ''
-  const status = (searchParams.get('status') as typeof TENANT_STATUSES[number] | '') ?? ''
+  const status = (searchParams.get('status') as TenantStatus | '') ?? ''
   const viewParam = searchParams.get('view')
   const view = (viewParam === 'table' || viewParam === 'cards' ? viewParam : readStoredView()) ?? 'cards'
 
   const query = useTenants({ page, size, q, status })
+  const retryMutation = useRetryTenant()
 
   const totalPages = useMemo(() => {
     if (!query.data) return 1
@@ -39,13 +85,15 @@ export function TenantsListPage() {
 
   const summary = useMemo(() => {
     const items = query.data?.items ?? []
-    const activeCount = items.filter((item) => ACTIVE_STATUSES.includes(item.status)).length
     const failedCount = items.filter((item) => item.status === 'FAILED').length
+    const pendingCount = items.filter((item) => item.status === 'PENDING').length
+    const provisioningCount = items.filter((item) => item.status === 'PROVISIONING').length
     return {
       total: query.data?.total ?? 0,
-      activeCount,
-      failedCount,
       shown: items.length,
+      failedCount,
+      pendingCount,
+      provisioningCount,
     }
   }, [query.data])
 
@@ -80,6 +128,17 @@ export function TenantsListPage() {
   }
 
   const error = query.error as ApiError | null
+  const retryError = retryMutation.error as ApiError | null
+
+  const handleRetry = async (tenantId: string) => {
+    setRetryingTenantId(tenantId)
+    try {
+      await retryMutation.mutateAsync(tenantId)
+      await query.refetch()
+    } finally {
+      setRetryingTenantId(null)
+    }
+  }
 
   return (
     <section className="stack-lg">
@@ -89,89 +148,76 @@ export function TenantsListPage() {
           <p>Administra aprovisionamiento, estado operativo y readiness para ingestion.</p>
         </div>
         <div className="actions-inline">
-          <div className="view-switch" role="group" aria-label="Modo de visualizacion">
-            <button
-              type="button"
-              className={cn('view-btn', view === 'table' && 'active')}
-              onClick={() => setViewMode('table')}
-            >
-              Tabla
-            </button>
-            <button
-              type="button"
-              className={cn('view-btn', view === 'cards' && 'active')}
-              onClick={() => setViewMode('cards')}
-            >
-              Tarjetas
-            </button>
-          </div>
-          <Link to="/operations" className="btn secondary inline-btn">
-            Ver operaciones
-          </Link>
           <button className="btn secondary" onClick={() => query.refetch()} type="button">
             Refrescar
           </button>
         </div>
       </div>
 
-      <div className="summary-grid">
+      <div className="summary-grid tenants-summary">
         <article className="summary-card">
-          <span>Total tenants</span>
+          <span>Total</span>
           <strong>{summary.total}</strong>
-          <small>Registros totales en la consulta actual</small>
-        </article>
-        <article className="summary-card">
-          <span>Activos</span>
-          <strong>{summary.activeCount}</strong>
-          <small>Provisioning y validacion en curso</small>
         </article>
         <article className="summary-card">
           <span>Fallidos</span>
           <strong>{summary.failedCount}</strong>
-          <small>Tenants que permiten accion de retry</small>
         </article>
         <article className="summary-card">
-          <span>Mostrados</span>
-          <strong>{summary.shown}</strong>
-          <small>Resultados visibles en esta pagina</small>
+          <span>Pendientes</span>
+          <strong>{summary.pendingCount}</strong>
+        </article>
+        <article className="summary-card">
+          <span>En provisioning</span>
+          <strong>{summary.provisioningCount}</strong>
         </article>
       </div>
 
-      <div className="panel filters">
-        <label>
-          Buscar
+      <div className="tenants-toolbar">
+        <label className="tenants-search" aria-label="Buscar por tenantId o company">
+          <span className="tenants-search-icon" aria-hidden="true">
+            ⌕
+          </span>
           <input
             value={q}
             onChange={(event) => updateFilters({ q: event.target.value })}
-            placeholder="tenantId o company"
+            placeholder="Buscar por tenantId o company"
           />
         </label>
 
-        <label>
-          Estado
-          <select value={status} onChange={(event) => updateFilters({ status: event.target.value })}>
-            <option value="">Todos</option>
-            {TENANT_STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="status-filter-pills" role="group" aria-label="Filtrar por estado">
+          {STATUS_FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.label}
+              type="button"
+              className={cn('status-pill', status === option.value && 'active')}
+              onClick={() => updateFilters({ status: option.value })}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
 
-        <label>
-          Tamano pagina
-          <select value={size} onChange={(event) => updateFilters({ size: event.target.value })}>
-            {[10, 20, 50, 100, 200].map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="view-switch" role="group" aria-label="Modo de visualizacion">
+          <button
+            type="button"
+            className={cn('view-btn', view === 'cards' && 'active')}
+            onClick={() => setViewMode('cards')}
+          >
+            Tarjetas
+          </button>
+          <button
+            type="button"
+            className={cn('view-btn', view === 'table' && 'active')}
+            onClick={() => setViewMode('table')}
+          >
+            Tabla
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-box">{friendlyError(error.code, error.message)}</div>}
+      {retryError && <div className="error-box">{friendlyError(retryError.code, retryError.message)}</div>}
 
       {view === 'table' && (
         <div className="panel table-wrap">
@@ -255,49 +301,66 @@ export function TenantsListPage() {
             </div>
           )}
 
-          {query.data?.items.map((item) => (
-            <article key={item.tenantId} className="panel entity-card">
-              <div className="entity-card-head">
-                <div>
-                  <p className="entity-meta">Tenant ID</p>
-                  <Link to={`/tenants/${item.tenantId}`} className="entity-card-title word-break">
+          {query.data?.items.map((item) => {
+            const progressStep = getProgressStep(item.status)
+            const isFailed = item.status === 'FAILED'
+            const isRetrying = retryMutation.isPending && retryingTenantId === item.tenantId
+
+            return (
+              <article key={item.tenantId} className={cn('panel entity-card tenant-card', toStatusClass(item.status))}>
+                <div className="tenant-card-top">
+                  <StatusBadge status={item.status} />
+                  <span className="tenant-card-time">{formatCardTime(item.updatedAt)}</span>
+                </div>
+
+                <div className="tenant-card-main">
+                  <h3 className="tenant-company-title word-break">{item.companyName}</h3>
+                  <Link to={`/tenants/${item.tenantId}`} className="tenant-card-subtitle word-break">
                     {item.tenantId}
                   </Link>
                 </div>
-                <StatusBadge status={item.status} />
-              </div>
 
-              <dl className="entity-kv">
-                <div className="entity-kv-row">
-                  <dt>Company</dt>
-                  <dd>{item.companyName}</dd>
+                <div className="tenant-chip-row">
+                  <span className="tenant-chip">
+                    {item.erpType} · {item.integrationMode}
+                  </span>
+                  <span className="tenant-chip">{item.environment}</span>
                 </div>
 
-                <div className="entity-kv-row">
-                  <dt>ERP</dt>
-                  <dd>
-                    {item.erpType} / {item.integrationMode}
-                  </dd>
-                </div>
+                {progressStep !== null && (
+                  <div className="tenant-progress">
+                    <div className="tenant-progress-bar" aria-hidden="true">
+                      {[0, 1, 2, 3].map((step) => (
+                        <span key={step} className={cn('tenant-progress-segment', step <= progressStep && 'active')} />
+                      ))}
+                    </div>
+                    <div className="tenant-progress-labels">
+                      <span className={cn(progressStep >= 0 && 'active')}>Creado</span>
+                      <span className={cn(progressStep >= 1 && 'active')}>Infra</span>
+                      <span className={cn(progressStep >= 2 && 'active')}>Validacion</span>
+                      <span className={cn(progressStep >= 3 && 'active')}>Listo</span>
+                    </div>
+                  </div>
+                )}
 
-                <div className="entity-kv-row">
-                  <dt>Environment</dt>
-                  <dd>{item.environment}</dd>
+                <div className={cn('tenant-actions', isFailed && 'with-retry')}>
+                  {isFailed && (
+                    <button
+                      type="button"
+                      className="btn tenant-retry-btn"
+                      disabled={retryMutation.isPending}
+                      onClick={() => handleRetry(item.tenantId)}
+                    >
+                      {isRetrying ? 'Reintentando...' : 'Reintentar'}
+                    </button>
+                  )}
+                  <Link to={`/tenants/${item.tenantId}`} className={cn('btn secondary tenant-detail-btn', !isFailed && 'full')}>
+                    Ver detalle
+                  </Link>
                 </div>
-
-                <div className="entity-kv-row">
-                  <dt>Actualizacion</dt>
-                  <dd>{formatDate(item.updatedAt)}</dd>
-                </div>
-              </dl>
-
-              <div className="entity-actions">
-                <Link to={`/tenants/${item.tenantId}`} className="btn secondary inline-btn">
-                  Ver detalle
-                </Link>
-              </div>
-            </article>
-          ))}
+              </article>
+            )
+          })}
         </div>
       )}
 
@@ -317,6 +380,8 @@ export function TenantsListPage() {
           Siguiente
         </button>
       </div>
+
+      <p className="tenants-footnote">Mostrando {summary.shown} de {summary.total} tenants</p>
     </section>
   )
 }
