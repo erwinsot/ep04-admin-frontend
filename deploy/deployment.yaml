@@ -22,7 +22,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: frontend
-          image: ghcr.io/erwinsot/ep04-admin-frontend:0.1.5
+          image: ghcr.io/erwinsot/ep04-admin-frontend:0.1.6
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
