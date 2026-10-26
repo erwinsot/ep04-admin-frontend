@@ -1,5 +1,5 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { EmptyState } from '@/components/empty-state'
 import { OperationStatusBadge } from '@/components/operation-status-badge'
 import { SkeletonTableRows } from '@/components/skeleton-table-rows'
@@ -106,6 +106,20 @@ export function TenantDetailPage() {
   const readiness = useTenantReadiness(tenantId, shouldPoll)
   const pullRequest = useTenantPullRequest(tenantId, shouldPoll)
   const tenantOperations = useTenantOperations(tenantId, { page: 0, size: TENANT_OPERATIONS_PAGE_SIZE }, shouldPoll)
+
+  // Al detener el polling la ultima lectura puede ser anterior al estado final; se refresca una vez mas.
+  const wasPolling = useRef(shouldPoll)
+  useEffect(() => {
+    if (wasPolling.current && !shouldPoll) {
+      const options = { cancelRefetch: false }
+      void readiness.refetch(options)
+      void pullRequest.refetch(options)
+      void events.refetch(options)
+      void tenantOperations.refetch(options)
+    }
+    wasPolling.current = shouldPoll
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldPoll])
   const retryMutation = useRetryTenant()
   const deleteMutation = useDeleteTenant()
 

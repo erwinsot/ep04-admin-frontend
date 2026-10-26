@@ -47,6 +47,6 @@ export const ACTIVE_STATUSES: TenantStatus[] = ['PENDING', 'VALIDATING', 'PROVIS
 
 export const ACTIVE_OPERATION_STATUSES: OperationStatus[] = ['PENDING', 'VALIDATING', 'PROVISIONING']
 
-export const TERMINAL_TENANT_STATUSES: TenantStatus[] = ['READY', 'READY_FOR_INGESTION', 'FAILED', 'DELETED']
+export const TERMINAL_TENANT_STATUSES: TenantStatus[] = ['READY_FOR_INGESTION', 'FAILED', 'DELETED']
 
 export const TERMINAL_OPERATION_STATUSES: OperationStatus[] = ['SUCCESS', 'FAILED']
