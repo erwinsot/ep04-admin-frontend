@@ -489,7 +489,7 @@ button.kpi:hover {
 
 .t-card {
   background: #fff;
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--status-color, var(--line)) 35%, var(--line));
   border-radius: 16px;
   padding: 18px;
   display: flex;
@@ -509,7 +509,7 @@ button.kpi:hover {
   left: 0;
   top: 0;
   right: 0;
-  height: 4px;
+  height: 6px;
 }
 
 .t-top {

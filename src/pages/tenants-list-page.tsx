@@ -125,7 +125,11 @@ export function TenantsListPage() {
     const failed = item.status === 'FAILED'
 
     return (
-      <article key={item.tenantId} className="t-card">
+      <article
+        key={item.tenantId}
+        className="t-card"
+        style={{ '--status-color': BAR_COLOR[item.status] } as React.CSSProperties}
+      >
         <div className="bar" style={{ background: BAR_COLOR[item.status] }} />
         <div className="t-top">
           <StatusBadge status={item.status} />
