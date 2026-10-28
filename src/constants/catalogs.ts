@@ -1,4 +1,4 @@
-import type { OperationStatus, OperationType, TenantStatus } from '@/types/ep04'
+import type { IngestionStatus, OperationStatus, OperationType, TenantStatus } from '@/types/ep04'
 
 export const ENVIRONMENTS = ['dev', 'qa', 'production'] as const
 export const INTEGRATION_MODES = ['API', 'FILE', 'HYBRID'] as const
@@ -47,6 +47,10 @@ export const ACTIVE_STATUSES: TenantStatus[] = ['PENDING', 'VALIDATING', 'PROVIS
 
 export const ACTIVE_OPERATION_STATUSES: OperationStatus[] = ['PENDING', 'VALIDATING', 'PROVISIONING']
 
-export const TERMINAL_TENANT_STATUSES: TenantStatus[] = ['READY_FOR_INGESTION', 'FAILED', 'DELETED']
+export const TERMINAL_TENANT_STATUSES: TenantStatus[] = ['READY', 'READY_FOR_INGESTION', 'FAILED', 'DELETED']
+
+export const READY_TENANT_STATUSES: TenantStatus[] = ['READY', 'READY_FOR_INGESTION']
+
+export const ACTIVE_INGESTION_STATUSES: IngestionStatus[] = ['PENDING', 'RUNNING']
 
 export const TERMINAL_OPERATION_STATUSES: OperationStatus[] = ['SUCCESS', 'FAILED']

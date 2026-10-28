@@ -1881,9 +1881,144 @@ small {
   }
 }
 
+/* ---------- Tabs, panel helpers, ingestion logs ---------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab.active {
+  color: var(--brand-dark);
+  border-bottom-color: var(--brand);
+}
+
+.tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--info);
+  animation: tab-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tab-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.panel-head h2 {
+  margin-bottom: 6px;
+}
+
+.panel-gap {
+  margin-top: 14px;
+}
+
+.note-flush {
+  margin-top: 0;
+}
+
+.secret-toggle {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(16, 38, 30, 0.55);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: min(900px, 100%);
+  max-height: min(80vh, 720px);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px -20px rgba(16, 38, 30, 0.5);
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-head h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 20px 20px;
+}
+
+.log-view {
+  margin: 0;
+  padding: 14px;
+  border-radius: 10px;
+  background: #0f1f19;
+  color: #d6e8df;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .auth-card,
-  .auth-spinner {
+  .auth-spinner,
+  .tab-dot {
     animation: none;
   }
 }
+

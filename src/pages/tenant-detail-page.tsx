@@ -5,8 +5,11 @@ import { OperationStatusBadge } from '@/components/operation-status-badge'
 import { SkeletonTableRows } from '@/components/skeleton-table-rows'
 import { StatusBadge } from '@/components/status-badge'
 import { AlertIcon, CheckIcon, CloseIcon, CopyIcon, DotsIcon } from '@/components/icons'
+import { IngestionPanel } from '@/components/ingestion-panel'
+import { StoragePanel } from '@/components/storage-panel'
 import {
   useDeleteTenant,
+  useIngestionRuns,
   useOperationDetail,
   useRetryTenant,
   useTenantDetail,
@@ -15,10 +18,15 @@ import {
   useTenantPullRequest,
   useTenantReadiness,
 } from '@/features/tenants/hooks'
-import { cn, copyText, erpLabel, formatDate, formatRelativeDate, splitDateTime } from '@/lib/utils'
+import { cn, copyText, erpLabel, eventLabel, formatDate, formatRelativeDate, splitDateTime } from '@/lib/utils'
 import { ApiError } from '@/lib/api'
 import { friendlyError } from '@/lib/error-messages'
-import { TERMINAL_OPERATION_STATUSES, TERMINAL_TENANT_STATUSES } from '@/constants/catalogs'
+import {
+  ACTIVE_STATUSES,
+  READY_TENANT_STATUSES,
+  TERMINAL_OPERATION_STATUSES,
+  TERMINAL_TENANT_STATUSES,
+} from '@/constants/catalogs'
 
 const TENANT_OPERATIONS_PAGE_SIZE = 10
 
@@ -107,6 +115,9 @@ export function TenantDetailPage() {
   const pullRequest = useTenantPullRequest(tenantId, shouldPoll)
   const tenantOperations = useTenantOperations(tenantId, { page: 0, size: TENANT_OPERATIONS_PAGE_SIZE }, shouldPoll)
 
+  const ingestionEligible = detail.data ? READY_TENANT_STATUSES.includes(detail.data.status) : false
+  const ingestionRuns = useIngestionRuns(tenantId, ingestionEligible)
+
   // Al detener el polling la ultima lectura puede ser anterior al estado final; se refresca una vez mas.
   const wasPolling = useRef(shouldPoll)
   useEffect(() => {
@@ -164,7 +175,12 @@ export function TenantDetailPage() {
   const tenant = detail.data
   const retryError = retryMutation.error as ApiError | null
   const deleteError = deleteMutation.error as ApiError | null
-  const canDelete = tenant.status !== 'DELETING' && tenant.status !== 'DELETED'
+  const canDelete = tenant.status !== 'DELETED'
+  const isBusy = ACTIVE_STATUSES.includes(tenant.status)
+  const ingestionHidden = (ingestionRuns.error as ApiError | null)?.code === 'KUBERNETES_DISABLED'
+  const showIngestionTab = ingestionEligible && !ingestionHidden
+  const activeTab = showIngestionTab && searchParams.get('tab') === 'ingesta' ? 'ingesta' : 'resumen'
+  const hasActiveRun = ingestionRuns.data?.runs.some((run) => run.status === 'PENDING' || run.status === 'RUNNING')
   const isFailed = tenant.status === 'FAILED' || operation.data?.status === 'FAILED'
 
   const latestFailedEvent = [...orderedEvents].reverse().find((event) => event.result === 'FAILED')
@@ -185,6 +201,13 @@ export function TenantDetailPage() {
   const clearTrackedOperation = () => {
     const params = new URLSearchParams(searchParams)
     params.delete('operationId')
+    setSearchParams(params)
+  }
+
+  const selectTab = (next: 'resumen' | 'ingesta') => {
+    const params = new URLSearchParams(searchParams)
+    if (next === 'ingesta') params.set('tab', 'ingesta')
+    else params.delete('tab')
     setSearchParams(params)
   }
 
@@ -248,7 +271,13 @@ export function TenantDetailPage() {
               </button>
             )}
             {canDelete && (
-              <button type="button" className="btn dng" disabled={deleteMutation.isPending} onClick={handleDelete}>
+              <button
+                type="button"
+                className="btn dng"
+                disabled={deleteMutation.isPending || isBusy}
+                title={isBusy ? 'Hay una operación en curso para este tenant' : undefined}
+                onClick={handleDelete}
+              >
                 {deleteMutation.isPending ? 'Solicitando baja…' : 'Eliminar tenant'}
               </button>
             )}
@@ -277,8 +306,40 @@ export function TenantDetailPage() {
       {deleteError && <div className="error-box">{friendlyError(deleteError.code, deleteError.message)}</div>}
       {operationError && <div className="error-box">{friendlyError(operationError.code, operationError.message)}</div>}
 
+      {showIngestionTab && (
+        <div className="tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'resumen'}
+            className={cn('tab', activeTab === 'resumen' && 'active')}
+            onClick={() => selectTab('resumen')}
+          >
+            Resumen
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'ingesta'}
+            className={cn('tab', activeTab === 'ingesta' && 'active')}
+            onClick={() => selectTab('ingesta')}
+          >
+            Ingesta
+            {hasActiveRun && <span className="tab-dot" aria-label="Corrida en curso" />}
+          </button>
+        </div>
+      )}
+
       <div className="detail-grid">
         <div className="col">
+          {activeTab === 'ingesta' ? (
+            <IngestionPanel
+              tenantId={tenant.tenantId}
+              runs={ingestionRuns}
+              readyForIngestion={readiness.data?.readyForIngestion === true}
+            />
+          ) : (
+            <>
           <section className="panel">
             <h2>Progreso del aprovisionamiento</h2>
             {flowSteps.length === 0 ? (
@@ -319,7 +380,7 @@ export function TenantDetailPage() {
                   <li key={event.id}>
                     <span className={cn('dot', event.result === 'FAILED' && 'bad')} />
                     <div className="h">
-                      <b>{event.action}</b>
+                      <b title={event.action}>{eventLabel(event.action)}</b>
                       <span>{formatDate(event.createdAt)}</span>
                     </div>
                     <p>{event.details}</p>
@@ -443,6 +504,8 @@ export function TenantDetailPage() {
               </div>
             )}
           </section>
+            </>
+          )}
         </div>
 
         <aside className="col">
@@ -474,6 +537,8 @@ export function TenantDetailPage() {
               </>
             )}
           </section>
+
+          <StoragePanel key={tenant.tenantId} tenantId={tenant.tenantId} status={tenant.status} />
 
           <section className="panel">
             <h2>General</h2>
@@ -515,14 +580,19 @@ export function TenantDetailPage() {
 
           <section className="panel">
             <h2>Pull Request</h2>
-            {pullRequestError && <div className="error-box">{friendlyError(pullRequestError.code, pullRequestError.message)}</div>}
+            {pullRequestError &&
+              (pullRequestError.code === 'PULL_REQUEST_NOT_FOUND' ? (
+                <p className="panel-note note-flush">{friendlyError(pullRequestError.code, pullRequestError.message)}</p>
+              ) : (
+                <div className="error-box">{friendlyError(pullRequestError.code, pullRequestError.message)}</div>
+              ))}
             {!pullRequestError && !pullRequest.data && <p className="panel-note" style={{ margin: 0 }}>Consultando estado del PR…</p>}
             {pullRequest.data && (
               <dl>
                 <div className="kv-row">
                   <dt>Estado</dt>
                   <dd>
-                    <span className="tag">{pullRequest.data.estado}</span>
+                    <span className="tag">{PR_STATE_LABEL[pullRequest.data.estado] ?? pullRequest.data.estado}</span>
                   </dd>
                 </div>
                 <div className="kv-row">
@@ -542,6 +612,14 @@ export function TenantDetailPage() {
                   </dd>
                 </div>
               </dl>
+            )}
+            {pullRequest.data?.estado === 'PENDIENTE_PUBLICACION' && (
+              <p className="panel-note">El Pull Request se está publicando en GitHub.</p>
+            )}
+            {pullRequest.data?.estado === 'PENDIENTE_REVISION' && (
+              <p className="panel-note">
+                Pendiente de revisión/merge: una persona debe revisar y fusionar el PR en GitHub para continuar.
+              </p>
             )}
           </section>
 

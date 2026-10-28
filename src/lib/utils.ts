@@ -74,6 +74,36 @@ export function erpLabel(erpType: string): string {
     .join(' ')
 }
 
+const EVENT_LABELS: Record<string, string> = {
+  CREATE_REQUESTED: 'Creación solicitada',
+  RETRY_REQUESTED: 'Reintento solicitado',
+  DELETE_REQUESTED: 'Baja solicitada',
+  PULL_REQUEST_OPENED: 'Pull request abierto',
+  PULL_REQUEST_MERGED: 'Pull request fusionado',
+  PULL_REQUEST_CLOSED: 'Pull request cerrado sin fusionar',
+  DELETE_PULL_REQUEST_OPENED: 'PR de baja abierto',
+  DELETE_PULL_REQUEST_MERGED: 'PR de baja fusionado',
+  DELETE_PULL_REQUEST_CLOSED: 'PR de baja cerrado sin fusionar',
+  PROVISIONING_FAILED: 'Falló el aprovisionamiento',
+  ARGO_HEALTH_CHECK: 'Verificación de Argo CD',
+  STORAGE_READY: 'Almacenamiento listo',
+  STORAGE_REVOKE_FAILED: 'Falló la revocación del almacenamiento',
+  INGESTION_TRIGGERED: 'Ingesta manual lanzada',
+}
+
+// Las acciones desconocidas se muestran tal cual las envia el backend.
+export function eventLabel(action: string): string {
+  return EVENT_LABELS[action] ?? action
+}
+
+export function formatSeconds(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined) return 'n/a'
+  if (seconds < 60) return `${seconds} s`
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return rest === 0 ? `${minutes} min` : `${minutes} min ${rest} s`
+}
+
 export async function copyText(value: string): Promise<boolean> {
   if (typeof navigator === 'undefined' || !navigator.clipboard) return false
   try {

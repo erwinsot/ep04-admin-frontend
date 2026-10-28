@@ -24,6 +24,20 @@ const map: Record<string, string> = {
   INVALID_MEMORY: 'El formato de memoria debe ser NGi (por ejemplo 8Gi).',
   MEMORY_OUT_OF_RANGE: 'Memoria fuera del rango permitido (1Gi-64Gi).',
   VALIDATION_ERROR: 'Hay datos invalidos en el formulario.',
+  PULL_REQUEST_NOT_FOUND: 'Este tenant todavía no tiene un Pull Request asociado.',
+  STORAGE_DISABLED: 'El almacenamiento S3 no está habilitado en el backend.',
+  STORAGE_NOT_READY: 'Las credenciales S3 estarán disponibles cuando el tenant esté listo.',
+  TENANT_NOT_READY: 'El tenant aún no está listo para ejecutar una ingesta.',
+  INGESTION_RUN_IN_PROGRESS: 'Ya hay una corrida de ingesta en curso. Espera a que termine.',
+  INGESTION_NOT_PROVISIONED:
+    'Este tenant no tiene la ingesta programada (tenant antiguo sin migrar). Contacta a plataforma.',
+  INGESTION_LOGS_NOT_FOUND: 'El log de esta corrida ya no está disponible o aún no existe.',
+  INVALID_RUN_NAME: 'El nombre de la corrida no es válido.',
+  KUBERNETES_DISABLED: 'La integración con Kubernetes está deshabilitada en el backend.',
+  KUBERNETES_FORBIDDEN: 'Faltan permisos del tenant en el clúster. Contacta a plataforma.',
+  KUBERNETES_UNAVAILABLE: 'No se pudo consultar el clúster, intenta de nuevo.',
+  KUBERNETES_ERROR: 'No se pudo consultar el clúster, intenta de nuevo.',
+  KUBERNETES_BAD_RESPONSE: 'No se pudo consultar el clúster, intenta de nuevo.',
   UNEXPECTED_ERROR: 'Ocurrio un error inesperado. Intenta de nuevo.',
 }
 

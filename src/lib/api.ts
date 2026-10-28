@@ -4,12 +4,16 @@ import type {
   CreateTenantRequest,
   ErrorResponse,
   HealthResponse,
+  IngestionRun,
+  IngestionRunLogs,
+  IngestionRunsResponse,
   OperationStatus,
   OperationType,
   OperationAcceptedResponse,
   PagedResponse,
   ProvisioningOperation,
   PullRequestStatus,
+  StorageInfo,
   TenantDetail,
   TenantEvent,
   TenantReadiness,
@@ -138,6 +142,24 @@ export function getTenantReadiness(tenantId: string) {
 
 export function getTenantPullRequest(tenantId: string) {
   return request<PullRequestStatus>(`/api/v1/tenants/${tenantId}/pull-request`)
+}
+
+export function getTenantStorage(tenantId: string) {
+  return request<StorageInfo>(`/api/v1/tenants/${tenantId}/storage`)
+}
+
+export function listIngestionRuns(tenantId: string, limit = 20) {
+  return request<IngestionRunsResponse>(`/api/v1/tenants/${tenantId}/ingestion/runs?limit=${limit}`)
+}
+
+export function triggerIngestion(tenantId: string) {
+  return request<IngestionRun>(`/api/v1/tenants/${tenantId}/ingestion/run`, { method: 'POST' })
+}
+
+export function getIngestionLogs(tenantId: string, runName: string, tail = 200) {
+  return request<IngestionRunLogs>(
+    `/api/v1/tenants/${tenantId}/ingestion/runs/${encodeURIComponent(runName)}/logs?tail=${tail}`,
+  )
 }
 
 export function listTenantOperations(

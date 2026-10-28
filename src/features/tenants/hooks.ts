@@ -2,16 +2,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createTenant,
   deleteTenant,
+  getIngestionLogs,
   getOperationDetail,
   getTenantDetail,
   getTenantEvents,
   getTenantPullRequest,
   getTenantReadiness,
+  getTenantStorage,
   healthCheck,
+  listIngestionRuns,
   listOperations,
   listTenantOperations,
   listTenants,
   retryTenant,
+  triggerIngestion,
 } from '@/lib/api'
 import type {
   CreateTenantRequest,
@@ -20,6 +24,7 @@ import type {
   TenantStatus,
 } from '@/types/ep04'
 import {
+  ACTIVE_INGESTION_STATUSES,
   ACTIVE_OPERATION_STATUSES,
   ACTIVE_STATUSES,
   TERMINAL_OPERATION_STATUSES,
@@ -91,6 +96,58 @@ export function useTenantPullRequest(tenantId: string, shouldPoll = true) {
     queryFn: () => getTenantPullRequest(tenantId),
     enabled: Boolean(tenantId),
     refetchInterval: shouldPoll ? POLLING_INTERVAL : false,
+  })
+}
+
+// Incluye el secretAccessKey en claro: sin polling ni refetch automatico, y sin reintentos en 4xx.
+export function useTenantStorage(tenantId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['tenant-storage', tenantId],
+    queryFn: () => getTenantStorage(tenantId),
+    enabled: Boolean(tenantId) && enabled,
+    retry: false,
+    staleTime: Infinity,
+    gcTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+export function useIngestionRuns(tenantId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['ingestion-runs', tenantId],
+    queryFn: () => listIngestionRuns(tenantId),
+    enabled: Boolean(tenantId) && enabled,
+    retry: false,
+    refetchInterval: (query) => {
+      const hasActive = query.state.data?.runs?.some((run) => ACTIVE_INGESTION_STATUSES.includes(run.status))
+      return hasActive ? POLLING_INTERVAL : false
+    },
+  })
+}
+
+export function useIngestionLogs(tenantId: string, runName: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['ingestion-logs', tenantId, runName],
+    queryFn: () => getIngestionLogs(tenantId, runName),
+    enabled: Boolean(tenantId) && Boolean(runName) && enabled,
+    retry: false,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useTriggerIngestion() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (tenantId: string) => triggerIngestion(tenantId),
+    onSuccess: async (_, tenantId) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['ingestion-runs', tenantId] }),
+        queryClient.invalidateQueries({ queryKey: ['tenant-events', tenantId] }),
+      ])
+    },
   })
 }
 

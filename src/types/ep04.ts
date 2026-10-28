@@ -137,3 +137,42 @@ export type TenantReadiness = {
   dataPlaneError: string | null
   message: string
 }
+
+export type StorageInfo = {
+  endpoint: string
+  region: string
+  bucket: string
+  pathStyle: boolean
+  accessKeyId: string
+  secretAccessKey: string
+  uploadLayout: string
+  prefix: string
+}
+
+export type IngestionTrigger = 'SCHEDULED' | 'MANUAL'
+
+export type IngestionStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+
+export type IngestionRun = {
+  name: string
+  trigger: IngestionTrigger
+  status: IngestionStatus
+  startedAt: string | null
+  finishedAt: string | null
+  durationSeconds: number | null
+  triggeredBy: string | null
+  message: string | null
+}
+
+export type IngestionRunsResponse = {
+  tenantId: string
+  namespace: string
+  runs: IngestionRun[]
+}
+
+export type IngestionRunLogs = {
+  tenantId: string
+  run: string
+  tailLines: number
+  logs: string
+}
