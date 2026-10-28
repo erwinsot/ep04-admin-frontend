@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: 113585321470.dkr.ecr.us-east-1.amazonaws.com/ep04-admin-frontend:0.1.10
+          image: 113585321470.dkr.ecr.us-east-1.amazonaws.com/ep04-admin-frontend:0.1.12
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
