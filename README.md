@@ -32,9 +32,11 @@ Frontend del modulo administrador de EP04. Esta aplicacion consume el backend en
 
 ## Rutas de la aplicacion
 
+- `/login`: pantalla de acceso (redirige a Cognito).
+- `/auth/callback`: retorno del Hosted UI de Cognito.
 - `/`: listado de tenants.
 - `/tenants/new`: formulario de creacion de tenant.
-- `/tenants/:tenantId`: detalle de tenant.
+- `/tenants/:tenantId`: detalle de tenant (pestanas `Resumen` e `Ingesta`).
 - `/operations`: historial global de operaciones.
 
 ## Requisitos
@@ -151,8 +153,12 @@ Run:
 ```bash
 docker run --rm -p 8080:80 \
   -e API_UPSTREAM=http://backend:8080 \
+  -e COGNITO_DOMAIN=<prefijo>.auth.<region>.amazoncognito.com \
+  -e COGNITO_CLIENT_ID=<client-id> \
   ep04-admin-frontend:latest
 ```
+
+Las variables `COGNITO_*` y `LOCAL_LOGIN` se sirven en runtime desde `/config.js` (no requieren rebuild).
 
 Si necesitas fijar variables `VITE_*` durante el build:
 
@@ -197,6 +203,14 @@ Manifiestos incluidos:
 - `deploy/hpa.yaml`
 - `deploy/pdb.yaml`
 - `deploy/kustomization.yaml`
+
+### Checklist de produccion
+
+1. `COGNITO_DOMAIN` y `COGNITO_CLIENT_ID` definidos en `deploy/configmap.yaml` y `LOCAL_LOGIN: "false"`.
+2. App Client de Cognito publico (sin secret), con callback `https://<host>/auth/callback` y logout `https://<host>/login`.
+3. Ingress con host real y TLS (Cognito exige HTTPS fuera de `localhost`); HSTS se configura en el ingress/ALB.
+4. Imagen con tag inmutable en `deploy/deployment.yaml`. Las replicas las gestiona el HPA (minimo 2).
+5. Backend con `OIDC_ENABLED` o proteccion de red: hoy `X-Admin-Role` es la unica barrera y no debe exponerse a internet.
 
 ## Argo CD
 
@@ -279,6 +293,9 @@ curl -i http://host.containers.internal:8080/api/v1/health
 - Historial global de operaciones con filtros (`status`, `type`, `tenantId`).
 - Polling en vistas con estados activos.
 - Manejo de errores por `code`.
+- Login con Amazon Cognito (Hosted UI) y cierre de sesion.
+- Bloque de almacenamiento S3 del tenant (secreto visible solo bajo demanda).
+- Pestana de ingesta: corridas, ejecucion manual y visor de logs.
 
 ## Estructura del proyecto
 

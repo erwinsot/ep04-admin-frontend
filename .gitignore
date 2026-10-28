@@ -8,6 +8,10 @@ coverage/
 # TypeScript incremental compilation
 *.tsbuildinfo
 
+# Generado por `tsc -b` a partir de vite.config.ts (Vite lo preferiria sobre el .ts)
+vite.config.js
+vite.config.d.ts
+
 # Logs
 logs/
 *.log

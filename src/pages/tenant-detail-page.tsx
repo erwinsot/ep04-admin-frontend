@@ -129,7 +129,6 @@ export function TenantDetailPage() {
       void tenantOperations.refetch(options)
     }
     wasPolling.current = shouldPoll
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldPoll])
   const retryMutation = useRetryTenant()
   const deleteMutation = useDeleteTenant()

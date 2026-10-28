@@ -15,5 +15,6 @@ data:
   COGNITO_REDIRECT_URI: ""
   COGNITO_LOGOUT_URI: ""
   COGNITO_SCOPES: "openid email profile"
-  # "true" permite entrar sin Cognito (solo pruebas locales; nunca en produccion)
+  # TEMPORAL: "true" permite entrar sin Cognito (sin autenticacion real).
+  # Al configurar COGNITO_DOMAIN y COGNITO_CLIENT_ID, cambiar a "false".
   LOCAL_LOGIN: "true"

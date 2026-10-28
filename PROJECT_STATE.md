@@ -1,6 +1,6 @@
 # EP04 Admin Frontend - Project State
 
-Last update: 2026-10-26
+Last update: 2026-10-28
 
 ## Purpose
 
@@ -16,11 +16,14 @@ It manages tenants and provisioning operations through the backend API under `/a
 - Async tenant deletion flow.
 - Global operations page with filters (`status`, `type`, `tenantId`).
 - Polling on active states and API error-code handling.
+- Login via Amazon Cognito Hosted UI (Authorization Code + PKCE); config injected at runtime through `/config.js`.
+- Tenant S3 storage block (secret revealed on demand) and ingestion tab (runs, manual run, logs).
+- Backend contract reference: `FRONTEND_HANDOFF_EP04.md`. Not implemented yet: forms driven by `/catalogs/provisioning-policy`.
 
 ## Runtime and Deployment
 
 - Development runtime: Vite dev server.
-- Production runtime: static build served by Nginx.
+- Production runtime: static build served by Nginx (security headers, immutable asset cache, `/config.js` runtime config).
 - Container flow: Dockerfile with `dev` and `production` targets.
 - Cluster manifests: `deploy/` (namespace, configmap, deployment, service, ingress, hpa, pdb, kustomization).
 - GitOps manifest: `argocd/application-ep04-admin-frontend.yaml`.
