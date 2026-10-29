@@ -9,12 +9,12 @@ metadata:
 data:
   API_UPSTREAM: http://ep04-control-plane.ep04-control-plane.svc.cluster.local:80
   # Dominio sin https://, p. ej. ep04-admin.auth.us-east-1.amazoncognito.com
-  COGNITO_DOMAIN: ""
-  COGNITO_CLIENT_ID: ""
+  COGNITO_DOMAIN: "edecision-113585321470.auth.us-east-1.amazoncognito.com"
+  COGNITO_CLIENT_ID: "bok0de6feukjh9n4tgc4492os"
   # Vacios = https://<host>/auth/callback y https://<host>/login
-  COGNITO_REDIRECT_URI: ""
-  COGNITO_LOGOUT_URI: ""
+  COGNITO_REDIRECT_URI: "http://localhost:8088/auth/callback"
+  COGNITO_LOGOUT_URI: "http://localhost:8088/login"
   COGNITO_SCOPES: "openid email profile"
   # TEMPORAL: "true" permite entrar sin Cognito (sin autenticacion real).
   # Al configurar COGNITO_DOMAIN y COGNITO_CLIENT_ID, cambiar a "false".
-  LOCAL_LOGIN: "true"
+  LOCAL_LOGIN: "false"
